@@ -8,6 +8,7 @@ import { activeSetup, useActive, useStore } from '../state/store';
 import { useResult, useSetup } from '../state/result';
 import { LEVEL_GROUP, useUi, type ViewPreset } from '../state/ui';
 import { UteModel } from './UteModel';
+import { VanModel } from './VanModel';
 import { TrailerModel } from './TrailerModel';
 import { DropGhost, Items } from './Items';
 import { Labels } from './Labels';
@@ -239,7 +240,11 @@ export function Scene() {
           color="#1d2228"
         />
 
-        <UteModel ute={setup.ute} hitch={setup.hitch} xray={xray} />
+        {setup.ute.bodyStyle === 'van' ? (
+          <VanModel ute={setup.ute} hitch={setup.hitch} xray={xray} />
+        ) : (
+          <UteModel ute={setup.ute} hitch={setup.hitch} xray={xray} />
+        )}
         {setup.towing && <TrailerModel caravan={setup.caravan} hitch={setup.hitch} offset={offset} xray={xray} />}
         <Items items={items} offset={offset} />
         <DropGhost offset={offset} />

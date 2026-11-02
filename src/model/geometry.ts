@@ -8,6 +8,8 @@ import { rimDiameter, tyreDiameter, tyreWidth } from './tyres';
 export interface UteGeometry {
   /** A five-seat SUV: the cabin runs to the tailgate and the "tub" is the cargo floor inside. */
   suv: boolean;
+  /** A cab-over panel van: the front seats sit over the front axle and the "tub" is the cargo area behind them. */
+  van: boolean;
   L: number;
   sFront: number;
   sRear: number;
@@ -51,6 +53,7 @@ export function rearOverhang(ute: Pick<UteSpec, 'overallLength' | 'wheelbase' | 
 }
 
 export function uteGeometry(ute: UteSpec, hitch: HitchSpec): UteGeometry {
+  if (ute.bodyStyle === 'van') return vanGeometry(ute, hitch);
   const suv = ute.bodyStyle === 'suv';
   const L = ute.wheelbase;
   const sFront = -ute.frontOverhang;
@@ -96,6 +99,7 @@ export function uteGeometry(ute: UteSpec, hitch: HitchSpec): UteGeometry {
 
   return {
     suv,
+    van: false,
     L,
     sFront,
     sRear,
@@ -123,6 +127,81 @@ export function uteGeometry(ute: UteSpec, hitch: HitchSpec): UteGeometry {
     tubRear,
     tubFloor: ute.tub.floorHeight,
     tubRail,
+    tubInnerW: Math.min(ute.tub.width, bodyW - 120),
+    wheels: [
+      { id: 'fl', x: 0, y: -ute.trackFront / 2 },
+      { id: 'fr', x: 0, y: ute.trackFront / 2 },
+      { id: 'rl', x: L, y: -ute.trackRear / 2 },
+      { id: 'rr', x: L, y: ute.trackRear / 2 },
+    ],
+    seats,
+    ball: { x: L + hitch.ballOffset, y: 0, z: hitch.ballHeight },
+  };
+}
+
+/**
+ * A cab-over van like the HiAce: a short sloping nose, a long raked windscreen, a row of three seats over the front
+ * axle, and the cargo area behind a bulkhead running to the rear doors. The fields mean what they do for a ute, with
+ * the "tub" being the cargo area and its depth the inside height.
+ */
+function vanGeometry(ute: UteSpec, hitch: HitchSpec): UteGeometry {
+  const L = ute.wheelbase;
+  const sFront = -ute.frontOverhang;
+  const sRear = L + rearOverhang(ute);
+  const wheelR = (tyreDiameter(ute.tyre.size) ?? 650) / 2;
+  const tyreW = tyreWidth(ute.tyre.size) ?? 195;
+  const bodyW = ute.overallWidth - 20;
+  const H = ute.overallHeight;
+  const zRoof = H - 25;
+  const bumperBottom = Math.max(280, wheelR * 1.0);
+  const zBonnetFront = Math.round(H * 0.44);
+  const zBonnet = Math.round(H * 0.47);
+  const zCowl = Math.round(H * 0.5);
+  const zBelt = Math.round(H * 0.55);
+  const sWindscreen = sFront + 330;
+  const sWindscreenTop = sWindscreen + 0.62 * (zRoof - zCowl);
+  const tubRear = sRear - 60;
+  const tubFront = tubRear - ute.tub.length;
+  const sCabBack = tubFront - 50;
+  const seatZ = Math.round(ute.tub.floorHeight + 520);
+  const row = Math.round(Math.min(sCabBack - 380, 260));
+  const side = Math.round(0.3 * bodyW);
+  // Australian vans drive on the right: driver, then the outer passenger, then the middle seat.
+  const seats: Vec3[] = [
+    { x: row, y: side, z: seatZ },
+    { x: row, y: -side, z: seatZ },
+    { x: row, y: 0, z: seatZ },
+  ];
+  return {
+    suv: false,
+    van: true,
+    L,
+    sFront,
+    sRear,
+    wheelR,
+    tyreW,
+    bodyW,
+    bumperBottom,
+    bodyBottom: wheelR + 60,
+    rimR: ((rimDiameter(ute.tyre.size) ?? 15) * 25.4) / 2,
+    zBonnet,
+    zBonnetFront,
+    zCowl,
+    zBelt,
+    zRoof,
+    zRails: H,
+    sWindscreen,
+    sWindscreenTop,
+    sRoofBack: sRear - 40,
+    sCabBack,
+    bPillar: sCabBack - 120,
+    cPillar: null,
+    beltHalf: bodyW / 2 - 30,
+    roofHalf: bodyW / 2 - 60,
+    tubFront,
+    tubRear,
+    tubFloor: ute.tub.floorHeight,
+    tubRail: ute.tub.floorHeight + ute.tub.depth,
     tubInnerW: Math.min(ute.tub.width, bodyW - 120),
     wheels: [
       { id: 'fl', x: 0, y: -ute.trackFront / 2 },

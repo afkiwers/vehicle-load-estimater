@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { applyVehicle, newSetup, PRESET_PLACEHOLDERS } from './presets';
 import { DEFAULT_VEHICLE, VEHICLES, vehicleModel } from './vehicles';
+import { uteGeometry } from './geometry';
+import { compute } from './calc';
 
 const at = (obj: unknown, path: string) => path.split('.').reduce<unknown>((o, k) => (o as Record<string, unknown> | undefined)?.[k], obj);
 
@@ -115,5 +117,22 @@ describe('vehicle models', () => {
     expect(s.ute.limits.gvm).toBe(2750);
     applyVehicle(s, 'generic-ute');
     expect(s.ute).toMatchObject({ name: 'Generic dual cab ute', bodyStyle: 'ute' });
+  });
+
+  it('has the 2009 Toyota HiAce LWB van, drawn as a cab-over van', () => {
+    const s = newSetup();
+    applyVehicle(s, 'hiace-lwb-30d-2009');
+    expect(s.ute).toMatchObject({ name: 'Toyota HiAce LWB van 3.0L diesel', bodyStyle: 'van', wheelbase: 2570, overallLength: 4695 });
+    expect(s.ute.limits).toMatchObject({ gvm: 2800, brakedTow: 1400 });
+    expect(vehicleModel('hiace-lwb-27p-2009').spec().limits).toMatchObject({ gvm: 2800, kerb: 1665, tare: 1620 });
+    // Not published: shown as placeholders.
+    expect(s.placeholders).toEqual(expect.arrayContaining(['ute.limits.frontAxle', 'ute.limits.rearAxle', 'ute.limits.towBallMax', 'ute.limits.kerb']));
+    const g = uteGeometry(s.ute, s.hitch);
+    // Three seats in the front row, close over the front axle; the cargo area behind them to the rear doors.
+    expect(g.seats).toHaveLength(3);
+    for (const seat of g.seats) expect(Math.abs(seat.x)).toBeLessThan(400);
+    expect(g.tubFront).toBeGreaterThan(g.seats[0].x);
+    expect(g.tubRear).toBeLessThan(g.sRear);
+    expect(compute(s).checks.find((c) => c.id === 'gvm')!.limit).toBe(2800);
   });
 });
