@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyVehicle, newSetup, PRESET_PLACEHOLDERS } from './presets';
-import { DEFAULT_VEHICLE, VEHICLES, vehicleModel } from './vehicles';
+import { DEFAULT_VEHICLE, VEHICLE_MAKES, VEHICLES, vehicleModel } from './vehicles';
 import { uteGeometry } from './geometry';
 import { compute } from './calc';
 
@@ -134,5 +134,14 @@ describe('vehicle models', () => {
     expect(g.tubFront).toBeGreaterThan(g.seats[0].x);
     expect(g.tubRear).toBeLessThan(g.sRear);
     expect(compute(s).checks.find((c) => c.id === 'gvm')!.limit).toBe(2800);
+  });
+
+  it('files every model under one of the makes in the picker', () => {
+    const makes = VEHICLE_MAKES.map((m) => m.make);
+    for (const v of VEHICLES) expect(makes).toContain(v.make);
+    for (const make of makes) expect(VEHICLES.some((v) => v.make === make)).toBe(true);
+    expect(vehicleModel('hiace-lwb-30d-2009').make).toBe('Toyota');
+    expect(vehicleModel('mux-lst-30d').make).toBe('Isuzu');
+    expect(vehicleModel('generic-car').make).toBe('Other');
   });
 });

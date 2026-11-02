@@ -17,8 +17,11 @@ import type { UteLimits, UteSpec } from './types';
 
 export type VehicleGroup = 'GWM Cannon Alpha' | 'GWM Cannon' | 'Earlier GWM models' | 'Isuzu D-MAX' | 'Isuzu MU-X' | 'Toyota HiAce' | 'Other makes';
 
+export type VehicleMake = 'GWM' | 'Isuzu' | 'Toyota' | 'Other';
+
 export interface VehicleModel {
   id: string;
+  make: VehicleMake;
   group: VehicleGroup;
   /** As listed in the picker. */
   label: string;
@@ -58,6 +61,8 @@ const EVERYTHING = ['ute.wheelbase', 'ute.trackFront', 'ute.trackRear', ...OVERA
 
 const makeOf = (group: VehicleGroup): keyof typeof UNPUBLISHED =>
   group.startsWith('Isuzu') ? 'Isuzu' : group.startsWith('Toyota') ? 'Toyota' : group === 'Other makes' ? 'Generic' : 'GWM';
+
+const MAKE: Record<keyof typeof UNPUBLISHED, VehicleMake> = { GWM: 'GWM', Isuzu: 'Isuzu', Toyota: 'Toyota', Generic: 'Other' };
 
 type Body = Pick<
   UteSpec,
@@ -570,6 +575,7 @@ const GENERIC: Def[] = [
 
 export const VEHICLES: VehicleModel[] = [...DEFS, ...ISUZU, ...TOYOTA, ...GENERIC].map((d) => ({
   id: d.id,
+  make: MAKE[makeOf(d.group)],
   group: d.group,
   label: d.name.replace(/^(GWM|Isuzu|Toyota) /, '') + (d.years ? ` (${d.years})` : ''),
   spec: () => ({
@@ -582,6 +588,14 @@ export const VEHICLES: VehicleModel[] = [...DEFS, ...ISUZU, ...TOYOTA, ...GENERI
   }),
   placeholders: [...new Set([...UNPUBLISHED[makeOf(d.group)], ...d.typical])],
 }));
+
+/** Makes in picker order, as shown. */
+export const VEHICLE_MAKES: { make: VehicleMake; label: string }[] = [
+  { make: 'GWM', label: 'GWM' },
+  { make: 'Isuzu', label: 'Isuzu' },
+  { make: 'Toyota', label: 'Toyota' },
+  { make: 'Other', label: 'Other make (generic)' },
+];
 
 export const VEHICLE_GROUPS: VehicleGroup[] = ['GWM Cannon Alpha', 'GWM Cannon', 'Earlier GWM models', 'Isuzu D-MAX', 'Isuzu MU-X', 'Toyota HiAce', 'Other makes'];
 

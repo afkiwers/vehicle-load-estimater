@@ -3,7 +3,7 @@ import type { UteBaselineSource } from '../model/calc';
 import { kg } from '../model/format';
 import { loadIndexKg, tyreDiameter } from '../model/tyres';
 import { applyVehicle, PAINTS } from '../model/presets';
-import { VEHICLE_GROUPS, VEHICLES, vehicleModel } from '../model/vehicles';
+import { VEHICLE_GROUPS, VEHICLE_MAKES, VEHICLES, vehicleModel } from '../model/vehicles';
 import { useStore } from '../state/store';
 import { useResult, useSetup } from '../state/result';
 import { IssueList, NumField, Section, TextField, Toggle, flagFor } from './fields';
@@ -61,7 +61,16 @@ export function UtePanel() {
   const tyreKg = loadIndexKg(setup.ute.tyre.loadIndex);
   const suv = setup.ute.bodyStyle === 'suv';
   const van = setup.ute.bodyStyle === 'van';
-  const generic = vehicleModel(setup.ute.model).group === 'Other makes';
+  const current = vehicleModel(setup.ute.model);
+  const generic = current.make === 'Other';
+  // The model list shows only the chosen make's models, grouped by range where a make has several.
+  const groups = VEHICLE_GROUPS.filter((g) => VEHICLES.some((v) => v.make === current.make && v.group === g));
+  const options = (group: string) =>
+    VEHICLES.filter((v) => v.make === current.make && v.group === group).map((v) => (
+      <option key={v.id} value={v.id}>
+        {v.label}
+      </option>
+    ));
 
   const reading = (key: keyof UteReadings, label: string) => (
     <div className="wb-cell" style={{ gridArea: key }}>
@@ -72,19 +81,36 @@ export function UtePanel() {
   return (
     <div className="tab-body">
       <Section title="Make and model">
+        <label className="field" style={{ marginBottom: 10 }}>
+          <span className="field-label">Make</span>
+          <span className="field-input">
+            <select
+              value={current.make}
+              onChange={(e) => {
+                // A new make starts on its first model; pick the exact one below.
+                const first = VEHICLES.find((v) => v.make === e.target.value);
+                if (first) update((s) => applyVehicle(s, first.id));
+              }}
+            >
+              {VEHICLE_MAKES.map((m) => (
+                <option key={m.make} value={m.make}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          </span>
+        </label>
         <label className="field">
           <span className="field-label">Model</span>
           <span className="field-input">
             <select value={setup.ute.model} onChange={(e) => update((s) => applyVehicle(s, e.target.value))}>
-              {VEHICLE_GROUPS.map((group) => (
-                <optgroup key={group} label={group}>
-                  {VEHICLES.filter((v) => v.group === group).map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.label}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
+              {groups.length > 1
+                ? groups.map((group) => (
+                    <optgroup key={group} label={group}>
+                      {options(group)}
+                    </optgroup>
+                  ))
+                : options(groups[0])}
             </select>
           </span>
           <span className="field-hint">
