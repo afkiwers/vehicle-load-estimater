@@ -62,17 +62,20 @@ Pick your vehicle under **Make and model** at the top of the Vehicle tab. The de
 - **Earlier GWM models:** Cannon Alpha Ultra and Lux 2.4L diesel (2024–2026) and Ultra Hybrid (2024–2025), Cannon Vanta 2.0L diesel (2023–2024), Cannon-X and Cannon-L 2.0L diesel (2021–2024)
 - **Isuzu D-MAX** crew cab with tub: SX 2.2L and 3.0L diesel and LS-U 3.0L diesel 4x2; SX and X-RIDER 2.2L and 3.0L diesel, LS-U, LS-U+, X-TERRAIN and BLADE 3.0L diesel 4x4
 - **Isuzu MU-X** (SUV): LS-M 2.2L diesel 4x2; LS-M, LS-U and LS-T 2.2L and 3.0L diesel and X-TERRAIN 3.0L diesel 4x4
+- **Toyota HiAce:** 2009 LWB panel van, 2.7L petrol and 3.0L diesel, drawn as a cab-over van with three front seats and the cargo area behind a bulkhead
 - **Other makes:** a generic dual cab ute and a generic car (five-seat SUV)
 
 If your vehicle is not in the list, pick the generic ute or car. They start with round figures typical of a mid-size 4x4 diesel dual cab ute (GVM 3,200 kg, braked towing 3,500 kg) and of a large five-seat SUV that tows (GVM 2,750 kg, braked towing 3,000 kg). Every one of them is a placeholder: replace them with the values on your placard, in the owner's manual and on the tow bar plate. Give the vehicle its name under **Your vehicle**; a share link shows it.
 
 The current GWM range uses the figures in GWM Australia's brochures (Cannon Alpha, 14 October 2026; Cannon, 16 October 2026): GVM, GCM, axle limits, kerb and tare weights, payload, towing, tyres and dimensions, and for the Cannon also the tub size and how the kerb weight splits between the axles. Earlier GWM models are no longer in a brochure; their weights and towing ratings come from Australian spec listings (CarExpert, carsales, Drive, CarsGuide, 4X4 Australia), and their axle limits, tare and tub sizes are typical values from the closest current model.
 
+The 2009 HiAce LWB van has GVM 2,800 kg and 1,400 kg braked towing from Australian spec listings (GoAuto, CarsGuide, carsales), with the petrol's tare and kerb weight from carsales. Its axle ratings, tow ball download, track, front overhang, cargo area and kerb weight split are not in those listings and are marked placeholder, as are the diesel's kerb weight and GCM, which come from a review of a later year. Check them against the compliance plate on the driver's door pillar.
+
 The Isuzus use Isuzu UTE Australia's 25.5MY D-MAX and MU-X brochures: GVM, GCM, axle ratings, kerb weight, payload, towing, tyre sizes, dimensions and track, and for the D-MAX the tub size. Isuzu gives the kerb weight with a full tank, so the tare (10 L of fuel) is worked out as the kerb weight less the rest of the diesel (55 kg for the D-MAX's 76 L tank, 58 kg for the MU-X's 80 L). For the D-MAX that matches the tare in Australian listings (carsales, trucksales). The 255/65R17 load index of 110 is Michelin's fitment for the D-MAX SX. The D-MAX cab chassis are not in the list because their published kerb weight is without the tray.
 
 The MU-X is drawn as a generic five-seat SUV: two rows of seats, with the third row folded into the cargo floor behind them. Cargo area items in the palette go on that floor; use the x-ray view to drag them around inside.
 
-Values that are not published, or where sources disagree, are marked **placeholder** in the app until you change them or click the chip to mark them verified: always the tub (or cargo) floor height; for GWM models the track and front overhang; for Isuzus the kerb weight split, the MU-X tare and the load index of 18 and 20-inch tyres, and on a 4x2 the front axle rating (the brochures give it with the 4x4's front axle); and depending on the model the tub or cargo floor size, kerb weight split, tyre load index and, for earlier GWM models, the axle limits and other figures. Check them against your vehicle's placard, owner's manual and tow bar plate. The tow ball starts 200 mm behind the rear bumper, also a placeholder until you measure it from the rear axle centre. Switching model keeps your readings, items, paint and a measured tow ball position. Single and space cab models are not in the list because the 3D view draws dual cab and SUV bodies only. The caravan starts with example values for a 6 m tandem van.
+Values that are not published, or where sources disagree, are marked **placeholder** in the app until you change them or click the chip to mark them verified: always the tub (or cargo) floor height; for GWM models the track and front overhang; for Isuzus the kerb weight split, the MU-X tare and the load index of 18 and 20-inch tyres, and on a 4x2 the front axle rating (the brochures give it with the 4x4's front axle); and depending on the model the tub or cargo floor size, kerb weight split, tyre load index and, for earlier GWM models, the axle limits and other figures. Check them against your vehicle's placard, owner's manual and tow bar plate. The tow ball starts 200 mm behind the rear bumper, also a placeholder until you measure it from the rear axle centre. Switching model keeps your readings, items, paint and a measured tow ball position. Single and space cab models are not in the list because the 3D view draws dual cab, SUV and van bodies only. The caravan starts with example values for a 6 m tandem van.
 
 ## Privacy
 
@@ -97,7 +100,7 @@ Code map:
 
 - `src/model/` load model (`calc.ts`), geometry, tyre tables, presets, trailer types (`trailers.ts`); no UI code. For compatibility with saved setups the code still calls the vehicle `ute` whatever its body (`ute.bodyStyle`), and the towed vehicle `caravan` whatever its type (`caravan.kind`).
 - `src/state/` setups store (saved in the browser), UI state
-- `src/three/` 3D scene, vehicle models (dual cab and SUV bodies), drag and drop
+- `src/three/` 3D scene, vehicle models (dual cab, SUV and van bodies), drag and drop
 - `src/components/` panels, inspector, report
 
 ## License

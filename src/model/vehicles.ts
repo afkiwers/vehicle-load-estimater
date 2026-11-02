@@ -1,18 +1,21 @@
-// Dual-cab utes and SUVs as sold in Australia: the GWM Cannon and Cannon Alpha, the
-// Isuzu D-MAX and the Isuzu MU-X, plus a generic ute and car for any other make.
+// Dual-cab utes, SUVs and vans as sold in Australia: the GWM Cannon and Cannon Alpha, the
+// Isuzu D-MAX and the Isuzu MU-X, the 2009 Toyota HiAce LWB van, plus a generic ute and car
+// for any other make.
 //
 // The current GWM range comes from GWM Australia's brochures (Cannon Alpha, current at
 // 14/10/2026; Cannon, 16/10/2026). Earlier GWM models are no longer in a brochure; their
 // kerb weight, GVM, GCM, payload and towing come from Australian spec listings
 // (CarExpert, carsales, Drive, CarsGuide, 4X4 Australia). The Isuzus come from Isuzu UTE
-// Australia's 25.5MY D-MAX and MU-X brochures.
+// Australia's 25.5MY D-MAX and MU-X brochures. The 2009 HiAce figures come from Australian
+// spec listings (GoAuto, CarsGuide, carsales); Toyota's axle ratings and tow ball download
+// for it are not in them.
 //
 // Each model lists the setup paths that hold typical rather than published values, so
 // the app marks them as placeholders to check against the vehicle's placard.
 
 import type { UteLimits, UteSpec } from './types';
 
-export type VehicleGroup = 'GWM Cannon Alpha' | 'GWM Cannon' | 'Earlier GWM models' | 'Isuzu D-MAX' | 'Isuzu MU-X' | 'Other makes';
+export type VehicleGroup = 'GWM Cannon Alpha' | 'GWM Cannon' | 'Earlier GWM models' | 'Isuzu D-MAX' | 'Isuzu MU-X' | 'Toyota HiAce' | 'Other makes';
 
 export interface VehicleModel {
   id: string;
@@ -30,6 +33,20 @@ export const DEFAULT_VEHICLE = 'alpha-vanta-30d';
 const UNPUBLISHED = {
   GWM: ['ute.trackFront', 'ute.trackRear', 'ute.frontOverhang', 'ute.tub.floorHeight'],
   Isuzu: ['ute.tub.floorHeight', 'ute.kerbFrontPct'],
+  Toyota: [
+    'ute.trackFront',
+    'ute.trackRear',
+    'ute.frontOverhang',
+    'ute.tub.length',
+    'ute.tub.width',
+    'ute.tub.depth',
+    'ute.tub.floorHeight',
+    'ute.kerbFrontPct',
+    'ute.tyre.loadIndex',
+    'ute.limits.frontAxle',
+    'ute.limits.rearAxle',
+    'ute.limits.towBallMax',
+  ],
   Generic: [],
 };
 const TUB = ['ute.tub.length', 'ute.tub.width', 'ute.tub.depth'];
@@ -40,7 +57,7 @@ const LIMITS = ['gvm', 'gcm', 'frontAxle', 'rearAxle', 'kerb', 'tare', 'payload'
 const EVERYTHING = ['ute.wheelbase', 'ute.trackFront', 'ute.trackRear', ...OVERALL, 'ute.frontOverhang', ...TUB, 'ute.tub.floorHeight', 'ute.kerbFrontPct', 'ute.tyre.size', 'ute.tyre.loadIndex', ...LIMITS];
 
 const makeOf = (group: VehicleGroup): keyof typeof UNPUBLISHED =>
-  group.startsWith('Isuzu') ? 'Isuzu' : group === 'Other makes' ? 'Generic' : 'GWM';
+  group.startsWith('Isuzu') ? 'Isuzu' : group.startsWith('Toyota') ? 'Toyota' : group === 'Other makes' ? 'Generic' : 'GWM';
 
 type Body = Pick<
   UteSpec,
@@ -451,6 +468,61 @@ const ISUZU: Def[] = [
   mux('mux-xterrain-30d', 'X-TERRAIN 3.0L diesel', '4x4', 2195, {}, R20),
 ];
 
+// 2009 Toyota HiAce LWB panel van (H200): 2,570 mm wheelbase, low roof. GVM 2,800 kg and 1,400 kg
+// braked towing are in every listing; the petrol's tare and kerb weight are from carsales. The
+// diesel's kerb weight and GCM come from a GoAuto review of a later year, so they stay typical, and
+// its tare allows for 60 L of diesel below the full tank. Track, front overhang, the cargo area, the
+// kerb weight split, axle ratings, tyre load index, ball download and the petrol's GCM are typical.
+const HIACE: Body = {
+  bodyStyle: 'van',
+  wheelbase: 2570,
+  trackFront: 1470,
+  trackRear: 1460,
+  overallLength: 4695,
+  overallWidth: 1695,
+  overallHeight: 1980,
+  frontOverhang: 935,
+  // The cargo area behind the front seats: floor length, width and inside height.
+  tub: { length: 2900, width: 1520, depth: 1320, floorHeight: 620 },
+  kerbFrontPct: 54,
+};
+const HIACE_TYRE = { size: '195/70R15C', loadIndex: 104 };
+const hiaceLimits = (kerb: number, tare: number, gcm: number): UteLimits => ({
+  gvm: 2800,
+  gcm,
+  frontAxle: 1350,
+  rearAxle: 1800,
+  kerb,
+  tare,
+  payload: 2800 - kerb,
+  brakedTow: 1400,
+  unbrakedTow: 400,
+  towBallMax: 140,
+});
+
+const TOYOTA: Def[] = [
+  {
+    id: 'hiace-lwb-27p-2009',
+    group: 'Toyota HiAce',
+    name: 'Toyota HiAce LWB van 2.7L petrol',
+    years: '2009',
+    body: HIACE,
+    limits: hiaceLimits(1665, 1620, 4200),
+    tyre: HIACE_TYRE,
+    typical: ['ute.limits.gcm', 'ute.limits.unbrakedTow'],
+  },
+  {
+    id: 'hiace-lwb-30d-2009',
+    group: 'Toyota HiAce',
+    name: 'Toyota HiAce LWB van 3.0L diesel',
+    years: '2009',
+    body: HIACE,
+    limits: hiaceLimits(1905, 1855, 3800),
+    tyre: HIACE_TYRE,
+    typical: ['ute.limits.kerb', 'ute.limits.tare', 'ute.limits.payload', 'ute.limits.gcm'],
+  },
+];
+
 // For any other make: round figures typical of a mid-size 4x4 diesel dual cab ute (Hilux, Ranger,
 // BT-50, Triton class) and of a large five-seat SUV that tows, all placeholders for the placard's.
 const GENERIC: Def[] = [
@@ -496,10 +568,10 @@ const GENERIC: Def[] = [
   },
 ];
 
-export const VEHICLES: VehicleModel[] = [...DEFS, ...ISUZU, ...GENERIC].map((d) => ({
+export const VEHICLES: VehicleModel[] = [...DEFS, ...ISUZU, ...TOYOTA, ...GENERIC].map((d) => ({
   id: d.id,
   group: d.group,
-  label: d.name.replace(/^(GWM|Isuzu) /, '') + (d.years ? ` (${d.years})` : ''),
+  label: d.name.replace(/^(GWM|Isuzu|Toyota) /, '') + (d.years ? ` (${d.years})` : ''),
   spec: () => ({
     model: d.id,
     name: d.name,
@@ -511,7 +583,7 @@ export const VEHICLES: VehicleModel[] = [...DEFS, ...ISUZU, ...GENERIC].map((d) 
   placeholders: [...new Set([...UNPUBLISHED[makeOf(d.group)], ...d.typical])],
 }));
 
-export const VEHICLE_GROUPS: VehicleGroup[] = ['GWM Cannon Alpha', 'GWM Cannon', 'Earlier GWM models', 'Isuzu D-MAX', 'Isuzu MU-X', 'Other makes'];
+export const VEHICLE_GROUPS: VehicleGroup[] = ['GWM Cannon Alpha', 'GWM Cannon', 'Earlier GWM models', 'Isuzu D-MAX', 'Isuzu MU-X', 'Toyota HiAce', 'Other makes'];
 
 export function vehicleModel(id: string): VehicleModel {
   return VEHICLES.find((v) => v.id === id) ?? VEHICLES.find((v) => v.id === DEFAULT_VEHICLE)!;
