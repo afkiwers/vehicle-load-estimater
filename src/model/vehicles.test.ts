@@ -146,16 +146,18 @@ describe('vehicle models', () => {
     expect(vehicleModel('generic-car').make).toBe('Other');
   });
 
-  it('has the Ford and BYD ranges under their own makes', () => {
+  it('has the Ford and BYD ranges under their own makes, with the published figures', () => {
     expect(vehicleModel('ranger-wildtrak-v6')).toMatchObject({ make: 'Ford', group: 'Ford Ranger' });
-    expect(vehicleModel('ranger-wildtrak-v6').spec().limits).toMatchObject({ gvm: 3350, gcm: 6400, kerb: 2427, payload: 923, brakedTow: 3500 });
-    expect(vehicleModel('ranger-raptor').spec().limits).toMatchObject({ gvm: 3130, kerb: 2413, brakedTow: 2500 });
-    expect(vehicleModel('f150-xlt-lwb').spec()).toMatchObject({ wheelbase: 3987, limits: { gvm: 3360, gcm: 7410, payload: 878, brakedTow: 4500 } });
+    expect(vehicleModel('ranger-wildtrak-v6').spec().limits).toMatchObject({ gvm: 3350, gcm: 6400, frontAxle: 1490, rearAxle: 1959, kerb: 2331, tare: 2272, payload: 1019 });
+    expect(vehicleModel('ranger-raptor').spec()).toMatchObject({ trackFront: 1710, limits: { gvm: 3160, kerb: 2407, brakedTow: 2500 } });
+    expect(vehicleModel('ranger-super-duty-xlt').spec().limits).toMatchObject({ gvm: 4500, gcm: 8000, payload: 1697, brakedTow: 4500 });
+    expect(vehicleModel('f150-xlt-lwb').spec()).toMatchObject({ wheelbase: 3994, limits: { gvm: 3360, gcm: 7410, frontAxle: 1633, payload: 878, brakedTow: 4500 } });
     expect(vehicleModel('shark6-premium')).toMatchObject({ make: 'BYD', group: 'BYD Shark 6' });
-    expect(vehicleModel('shark6-premium').spec().limits).toMatchObject({ gvm: 3500, kerb: 2710, payload: 790, brakedTow: 2500, towBallMax: 250 });
+    expect(vehicleModel('shark6-premium').spec().limits).toMatchObject({ gvm: 3500, frontAxle: 1595, rearAxle: 1905, kerb: 2710, payload: 790, brakedTow: 2500, towBallMax: 250 });
     expect(vehicleModel('sealion7-premium').spec()).toMatchObject({ bodyStyle: 'suv', limits: { gvm: 2635, kerb: 2225, tare: 2225 } });
-    // Unconfirmed figures stay placeholders.
-    expect(vehicleModel('ranger-xlt-v6').placeholders).toEqual(expect.arrayContaining(['ute.limits.kerb', 'ute.limits.frontAxle']));
-    expect(vehicleModel('shark6-premium').placeholders).not.toContain('ute.limits.rearAxle');
+    // Published axle ratings are not placeholders; the tow ball download Ford doesn't publish is.
+    expect(vehicleModel('ranger-xlt-v6').placeholders).toContain('ute.limits.towBallMax');
+    expect(vehicleModel('ranger-xlt-v6').placeholders).not.toContain('ute.limits.frontAxle');
+    expect(vehicleModel('sealion6-premium').placeholders).toEqual(expect.arrayContaining(['ute.limits.gcm', 'ute.limits.rearAxle']));
   });
 });

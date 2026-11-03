@@ -45,9 +45,9 @@ export const DEFAULT_VEHICLE = 'alpha-vanta-30d';
 
 /** Not in any of the maker's brochures. Isuzu gives the track and front overhang, but not how the kerb weight splits. */
 const UNPUBLISHED = {
-  // Ford's and BYD's spec sheets are not reachable here; these are rarely in the listings the figures come from.
-  Ford: ['ute.trackFront', 'ute.trackRear', 'ute.frontOverhang', 'ute.tub.length', 'ute.tub.width', 'ute.tub.depth', 'ute.tub.floorHeight', 'ute.kerbFrontPct', 'ute.tyre.loadIndex'],
-  BYD: ['ute.trackFront', 'ute.trackRear', 'ute.frontOverhang', 'ute.tub.length', 'ute.tub.width', 'ute.tub.depth', 'ute.tub.floorHeight', 'ute.kerbFrontPct', 'ute.tyre.loadIndex'],
+  // CarExpert's pages give neither the tub (or cargo floor) nor how the kerb weight splits.
+  Ford: ['ute.tub.length', 'ute.tub.width', 'ute.tub.depth', 'ute.tub.floorHeight', 'ute.kerbFrontPct'],
+  BYD: ['ute.tub.length', 'ute.tub.width', 'ute.tub.depth', 'ute.tub.floorHeight', 'ute.kerbFrontPct'],
   GWM: ['ute.trackFront', 'ute.trackRear', 'ute.frontOverhang', 'ute.tub.floorHeight'],
   Isuzu: ['ute.tub.floorHeight', 'ute.kerbFrontPct'],
   Toyota: [
@@ -542,39 +542,16 @@ const TOYOTA: Def[] = [
   },
 ];
 
-// Ford utes in Australia: the Ranger dual cab pick-up, Raptor, PHEV and Super Duty, and the
-// remanufactured right-hand drive F-150. Figures are from Australian spec listings and launch
-// coverage (carsales, CarExpert, CarsGuide, Drive, 4X4 Australia, Caravan World, Carsauce);
-// payload is GVM less kerb weight, as for every model here. Ford's spec sheets were not
-// reachable, so axle ratings, tare and the kerb weights no listing agreed on are typical.
-const RANGER: Body = {
-  bodyStyle: 'ute',
-  wheelbase: 3270,
-  trackFront: 1620,
-  trackRear: 1620,
-  overallLength: 5370,
-  overallWidth: 1918,
-  overallHeight: 1884,
-  frontOverhang: 950,
-  tub: { length: 1564, width: 1584, depth: 528, floorHeight: 840 },
-  kerbFrontPct: 56,
-};
-const RAPTOR: Body = { ...RANGER, trackFront: 1710, trackRear: 1710, overallLength: 5360, overallWidth: 2028, overallHeight: 1926, tub: { ...RANGER.tub, floorHeight: 900 } };
-const SUPER_DUTY: Body = { ...RANGER, trackFront: 1710, trackRear: 1710, overallLength: 5470, overallWidth: 2000, overallHeight: 1985, tub: { ...RANGER.tub, floorHeight: 900 }, kerbFrontPct: 55 };
-const F150 = (wheelbase: number, length: number, box: number): Body => ({
-  bodyStyle: 'ute',
-  wheelbase,
-  trackFront: 1745,
-  trackRear: 1745,
-  overallLength: length,
-  overallWidth: 2030,
-  overallHeight: 1960,
-  frontOverhang: 980,
-  tub: { length: box, width: 1656, depth: 544, floorHeight: 900 },
-  kerbFrontPct: 57,
-});
+// Ford utes in Australia: every Ranger dual cab pick-up, and the remanufactured right-hand drive
+// F-150. Figures are CarExpert's specification pages for the current model year (dated 1 September
+// 2026): kerb and tare weight, GVM, GCM, payload, both axle ratings, towing, dimensions, track,
+// front overhang and tyres are as published there. Ford does not publish the tow ball download on
+// those pages, so it is typical, as are the tub and the kerb weight split.
+type Size = { L: number; W: number; H: number; track: [number, number]; fo: number; floor: number };
+/** [GVM, GCM, front axle, rear axle, kerb, tare, braked tow, unbraked tow, tow ball] in kg. */
+type Ratings = [number, number, number, number, number, number, number, number, number];
 
-const rangerLimits = (gvm: number, gcm: number, kerb: number, tare: number, frontAxle: number, rearAxle: number, brakedTow = 3500, towBallMax = 350): UteLimits => ({
+const ratings = ([gvm, gcm, frontAxle, rearAxle, kerb, tare, brakedTow, unbrakedTow, towBallMax]: Ratings): UteLimits => ({
   gvm,
   gcm,
   frontAxle,
@@ -583,152 +560,117 @@ const rangerLimits = (gvm: number, gcm: number, kerb: number, tare: number, fron
   tare,
   payload: gvm - kerb,
   brakedTow,
-  unbrakedTow: 750,
+  unbrakedTow,
   towBallMax,
 });
-const R18_RANGER = { size: '255/65R18', loadIndex: 111 };
-const R20_RANGER = { size: '255/60R20', loadIndex: 113 };
-const AXLES_TYPICAL = ['ute.limits.frontAxle', 'ute.limits.rearAxle'];
 
-// F-150 (2025 update): GVM/GCM 3,315/7,365 kg short and 3,360/7,410 kg long wheelbase, payloads by
-// grade from Carsauce and 4X4 Australia, so the kerb weight is GVM less payload. 4,500 kg braked with
-// the 70 mm ball, 450 kg on the ball (carsales).
-const f150 = (id: string, grade: string, lwb: boolean, payload: number, tyre: Def['tyre']): Def => {
-  const gvm = lwb ? 3360 : 3315;
-  return {
-    id,
-    group: 'Ford F-150',
-    name: `Ford F-150 ${grade} ${lwb ? 'LWB' : 'SWB'}`,
-    body: lwb ? F150(3987, 6184, 1981) : F150(3683, 5884, 1676),
-    limits: { gvm, gcm: lwb ? 7410 : 7365, frontAxle: 1700, rearAxle: 2000, kerb: gvm - payload, tare: gvm - payload - 85, payload, brakedTow: 4500, unbrakedTow: 750, towBallMax: 450 },
-    tyre,
-    typical: [...AXLES_TYPICAL, 'ute.limits.tare', 'ute.overallHeight', 'ute.overallWidth'],
-  };
-};
+const ranger = (id: string, grade: string, z: Size, r: Ratings, tyre: Def['tyre']): Def => ({
+  id,
+  group: 'Ford Ranger',
+  name: `Ford Ranger ${grade}`,
+  body: {
+    bodyStyle: 'ute',
+    wheelbase: 3270,
+    trackFront: z.track[0],
+    trackRear: z.track[1],
+    overallLength: z.L,
+    overallWidth: z.W,
+    overallHeight: z.H,
+    frontOverhang: z.fo,
+    tub: { length: 1564, width: 1584, depth: 528, floorHeight: z.floor },
+    kerbFrontPct: 56,
+  },
+  limits: ratings(r),
+  tyre,
+  typical: ['ute.limits.towBallMax'],
+});
+
+/** The F-150's GVM, GCM, axle ratings, kerb and tare weight (kg); 4,500 kg braked with the 70 mm ball. */
+const f150 = (id: string, grade: string, z: { L: number; wb: number; box: number }, r: [number, number, number, number, number, number], size: string): Def => ({
+  id,
+  group: 'Ford F-150',
+  name: `Ford F-150 ${grade}`,
+  body: {
+    bodyStyle: 'ute',
+    wheelbase: z.wb,
+    trackFront: 1725,
+    trackRear: 1736,
+    overallLength: z.L,
+    overallWidth: 2030,
+    overallHeight: 1995,
+    frontOverhang: 955,
+    tub: { length: z.box, width: 1656, depth: 544, floorHeight: 900 },
+    kerbFrontPct: 57,
+  },
+  // carsales gives 450 kg on the ball; the unbraked rating and tyre load index are not on CarExpert's pages.
+  limits: ratings([...r, 4500, 750, 450]),
+  tyre: { size, loadIndex: 115 },
+  typical: ['ute.limits.towBallMax', 'ute.limits.unbrakedTow', 'ute.tyre.loadIndex'],
+});
 
 const FORD: Def[] = [
-  {
-    id: 'ranger-xlt-20bt',
-    group: 'Ford Ranger',
-    name: 'Ford Ranger XLT 2.0L bi-turbo 4x4',
-    // carsales: tare 2,212, kerb 2,360, GVM 3,230, GCM 6,350 kg. Axle ratings as listed for the bi-turbo Wildtrak.
-    body: RANGER,
-    limits: rangerLimits(3230, 6350, 2360, 2212, 1490, 1959),
-    tyre: R18_RANGER,
-    typical: AXLES_TYPICAL,
-  },
-  {
-    id: 'ranger-wildtrak-20bt',
-    group: 'Ford Ranger',
-    name: 'Ford Ranger Wildtrak 2.0L bi-turbo 4x4',
-    // carsales: GVM 3,280, GCM 6,350, kerb 2,360 kg; front 1,490 and rear 1,959 kg axles.
-    body: RANGER,
-    limits: rangerLimits(3280, 6350, 2360, 2212, 1490, 1959),
-    tyre: R20_RANGER,
-    typical: ['ute.limits.tare'],
-  },
-  {
-    id: 'ranger-xlt-v6',
-    group: 'Ford Ranger',
-    name: 'Ford Ranger XLT 3.0L V6 4x4',
-    // GVM 3,350 and GCM 6,400 kg as for every V6; no listing agreed on the XLT V6's kerb weight.
-    body: RANGER,
-    limits: rangerLimits(3350, 6400, 2390, 2300, 1550, 1959),
-    tyre: R18_RANGER,
-    typical: [...AXLES_TYPICAL, 'ute.limits.kerb', 'ute.limits.tare', 'ute.limits.payload'],
-  },
-  {
-    id: 'ranger-wildtrak-v6',
-    group: 'Ford Ranger',
-    name: 'Ford Ranger Wildtrak 3.0L V6 4x4',
-    // GVM 3,350, GCM 6,400, kerb 2,427 kg, so 923 kg payload (The Beep's Wildtrak V6 review).
-    body: RANGER,
-    limits: rangerLimits(3350, 6400, 2427, 2335, 1550, 1959),
-    tyre: R20_RANGER,
-    typical: [...AXLES_TYPICAL, 'ute.limits.tare'],
-  },
-  {
-    id: 'ranger-platinum-v6',
-    group: 'Ford Ranger',
-    name: 'Ford Ranger Platinum 3.0L V6 4x4',
-    // carsales: tare 2,325, kerb 2,416, GVM 3,350, GCM 6,400 kg.
-    body: RANGER,
-    limits: rangerLimits(3350, 6400, 2416, 2325, 1550, 1959),
-    tyre: R20_RANGER,
-    typical: AXLES_TYPICAL,
-  },
-  {
-    id: 'ranger-raptor',
-    group: 'Ford Ranger',
-    name: 'Ford Ranger Raptor 3.0L V6 petrol',
-    // CarExpert: kerb 2,413, GVM 3,130, GCM 5,370 kg; 2,500 kg braked. 285/70R17 all-terrains.
-    body: RAPTOR,
-    limits: rangerLimits(3130, 5370, 2413, 2360, 1500, 1800, 2500, 250),
-    tyre: { size: '285/70R17', loadIndex: 121 },
-    typical: [...AXLES_TYPICAL, 'ute.limits.tare', 'ute.limits.towBallMax'],
-  },
-  {
-    id: 'ranger-phev-xlt',
-    group: 'Ford Ranger',
-    name: 'Ford Ranger XLT PHEV',
-    // Ford: GVM 3,500, GCM 6,580 kg, 3,500 kg braked; payload 973 kg at the XLT's minimum kerb weight.
-    body: RANGER,
-    limits: rangerLimits(3500, 6580, 2527, 2497, 1600, 2100),
-    tyre: R18_RANGER,
-    typical: [...AXLES_TYPICAL, 'ute.limits.tare', 'ute.limits.towBallMax'],
-  },
-  {
-    id: 'ranger-phev-wildtrak',
-    group: 'Ford Ranger',
-    name: 'Ford Ranger Wildtrak PHEV',
-    // Ford: payload 885 kg at minimum kerb weight.
-    body: RANGER,
-    limits: rangerLimits(3500, 6580, 2615, 2585, 1600, 2100),
-    tyre: R20_RANGER,
-    typical: [...AXLES_TYPICAL, 'ute.limits.tare', 'ute.limits.towBallMax'],
-  },
-  {
-    id: 'ranger-super-duty-pickup',
-    group: 'Ford Ranger',
-    name: 'Ford Ranger Super Duty XLT double cab pick-up',
-    // GVM 4,500, GCM 8,000 kg, 4,500 kg braked; the pick-up's payload is 1,697 kg. 3,270 mm wheelbase,
-    // 1,710 mm track, 275/70R18 tyres.
-    body: SUPER_DUTY,
-    limits: rangerLimits(4500, 8000, 2803, 2700, 1800, 3000, 4500, 450),
-    tyre: { size: '275/70R18', loadIndex: 125 },
-    typical: [...AXLES_TYPICAL, 'ute.limits.tare', 'ute.limits.towBallMax', 'ute.overallLength', 'ute.overallWidth'],
-  },
-  f150('f150-xlt-swb', 'XLT', false, 853, { size: '275/65R18', loadIndex: 116 }),
-  f150('f150-xlt-lwb', 'XLT', true, 878, { size: '275/65R18', loadIndex: 116 }),
-  f150('f150-lariat-swb', 'Lariat', false, 769, { size: '275/60R20', loadIndex: 115 }),
-  f150('f150-lariat-lwb', 'Lariat', true, 794, { size: '275/60R20', loadIndex: 115 }),
-  f150('f150-platinum-swb', 'Platinum', false, 704, { size: '275/60R20', loadIndex: 115 }),
-  f150('f150-platinum-lwb', 'Platinum', true, 724, { size: '275/60R20', loadIndex: 115 }),
+  ranger('ranger-xl-20-4x2', 'XL 2.0L diesel 4x2', { L: 5370, W: 1910, H: 1875, track: [1620, 1620], fo: 865, floor: 840 }, [3200, 6200, 1400, 1959, 2030, 1971, 3500, 750, 350], { size: '255/70R16', loadIndex: 111 }),
+  ranger('ranger-xl-20', 'XL 2.0L diesel 4x4', { L: 5370, W: 1910, H: 1875, track: [1620, 1620], fo: 865, floor: 840 }, [3250, 6200, 1490, 1959, 2126, 2067, 3500, 750, 350], { size: '255/70R16', loadIndex: 111 }),
+  ranger('ranger-xl-v6', 'XL 3.0L V6 4x4', { L: 5370, W: 1910, H: 1875, track: [1620, 1620], fo: 865, floor: 840 }, [3250, 6400, 1490, 1959, 2215, 2156, 3500, 750, 350], { size: '255/70R17', loadIndex: 112 }),
+  ranger('ranger-xl-phev', 'XL PHEV', { L: 5350, W: 1924, H: 1883, track: [1630, 1630], fo: 865, floor: 840 }, [3500, 6580, 1490, 2100, 2566, 2518, 3500, 750, 350], { size: '255/70R16', loadIndex: 111 }),
+  ranger('ranger-xls-20', 'XLS 2.0L diesel 4x4', { L: 5370, W: 1918, H: 1875, track: [1620, 1620], fo: 865, floor: 840 }, [3230, 6350, 1450, 1959, 2172, 2113, 3500, 750, 350], { size: '255/70R16', loadIndex: 111 }),
+  ranger('ranger-xlt-20-4x2', 'XLT 2.0L diesel 4x2', { L: 5370, W: 1918, H: 1886, track: [1620, 1620], fo: 865, floor: 840 }, [3200, 6200, 1400, 1959, 2092, 2033, 3500, 750, 350], { size: '255/70R17', loadIndex: 112 }),
+  ranger('ranger-xlt-20', 'XLT 2.0L diesel 4x4', { L: 5370, W: 1918, H: 1886, track: [1620, 1620], fo: 865, floor: 840 }, [3230, 6350, 1450, 1959, 2209, 2150, 3500, 750, 350], { size: '255/70R17', loadIndex: 112 }),
+  ranger('ranger-xlt-v6', 'XLT 3.0L V6 4x4', { L: 5370, W: 1918, H: 1886, track: [1620, 1620], fo: 865, floor: 840 }, [3350, 6400, 1490, 1959, 2251, 2192, 3500, 750, 350], { size: '255/70R17', loadIndex: 112 }),
+  ranger('ranger-xlt-phev', 'XLT PHEV', { L: 5350, W: 1924, H: 1871, track: [1630, 1630], fo: 865, floor: 840 }, [3500, 6580, 1490, 2100, 2527, 2479, 3500, 750, 350], { size: '255/70R17', loadIndex: 112 }),
+  ranger('ranger-sport-20', 'Sport 2.0L diesel 4x4', { L: 5370, W: 1918, H: 1886, track: [1620, 1620], fo: 865, floor: 840 }, [3230, 6350, 1450, 1959, 2220, 2161, 3500, 750, 350], { size: '255/65R18', loadIndex: 111 }),
+  ranger('ranger-sport-v6', 'Sport 3.0L V6 4x4', { L: 5370, W: 1918, H: 1886, track: [1620, 1620], fo: 865, floor: 840 }, [3280, 6400, 1490, 1959, 2276, 2217, 3500, 750, 350], { size: '255/65R18', loadIndex: 111 }),
+  ranger('ranger-sport-phev', 'Sport PHEV', { L: 5350, W: 1924, H: 1883, track: [1630, 1630], fo: 865, floor: 840 }, [3500, 6580, 1490, 2100, 2566, 2518, 3500, 750, 350], { size: '255/65R18', loadIndex: 111 }),
+  ranger('ranger-black-20', 'Black Edition 2.0L diesel 4x4', { L: 5370, W: 1918, H: 1875, track: [1620, 1620], fo: 865, floor: 840 }, [3250, 6200, 1490, 1959, 2190, 2131, 3500, 750, 350], { size: '255/70R17', loadIndex: 111 }),
+  ranger('ranger-black-v6', 'Black Edition 3.0L V6 4x4', { L: 5370, W: 1918, H: 1875, track: [1620, 1620], fo: 865, floor: 840 }, [3250, 6400, 1490, 1959, 2254, 2195, 3500, 750, 350], { size: '255/70R17', loadIndex: 111 }),
+  ranger('ranger-wildtrak-20', 'Wildtrak 2.0L diesel 4x4', { L: 5370, W: 1918, H: 1886, track: [1620, 1620], fo: 865, floor: 840 }, [3280, 6350, 1490, 1959, 2283, 2279, 3500, 750, 350], { size: '255/65R18', loadIndex: 111 }),
+  ranger('ranger-wildtrak-v6', 'Wildtrak 3.0L V6 4x4', { L: 5370, W: 1918, H: 1886, track: [1620, 1620], fo: 865, floor: 840 }, [3350, 6400, 1490, 1959, 2331, 2272, 3500, 750, 350], { size: '255/65R18', loadIndex: 111 }),
+  ranger('ranger-wildtrak-phev', 'Wildtrak PHEV', { L: 5350, W: 1924, H: 1878, track: [1630, 1630], fo: 865, floor: 840 }, [3500, 6580, 1490, 2100, 2615, 2567, 3500, 750, 350], { size: '255/65R18', loadIndex: 111 }),
+  ranger('ranger-wolftrak-v6', 'Wolftrak 3.0L V6 4x4', { L: 5370, W: 1918, H: 1886, track: [1620, 1620], fo: 865, floor: 840 }, [3350, 6400, 1490, 1959, 2295, 2236, 3500, 750, 350], { size: '255/70R17', loadIndex: 111 }),
+  ranger('ranger-tremor-v6', 'Tremor 3.0L V6 4x4', { L: 5370, W: 1949, H: 1914, track: [1650, 1650], fo: 865, floor: 840 }, [3350, 6400, 1490, 1959, 2317, 2258, 3500, 750, 350], { size: '255/70R17', loadIndex: 111 }),
+  ranger('ranger-platinum-v6', 'Platinum 3.0L V6 4x4', { L: 5370, W: 1918, H: 1920, track: [1620, 1620], fo: 865, floor: 840 }, [3300, 6400, 1490, 1959, 2369, 2310, 3500, 750, 350], { size: '255/55R20', loadIndex: 110 }),
+  ranger('ranger-raptor', 'Raptor 3.0L V6 petrol', { L: 5380, W: 2028, H: 1926, track: [1710, 1710], fo: 865, floor: 900 }, [3160, 5400, 1520, 1700, 2407, 2355, 2500, 750, 250], { size: '285/70R17', loadIndex: 116 }),
+  ranger('ranger-super-duty', 'Super Duty double cab pick-up', { L: 5447, W: 2197, H: 1975, track: [1710, 1710], fo: 945, floor: 900 }, [4500, 8000, 1900, 2800, 2803, 2701, 4500, 750, 450], { size: '275/70R18', loadIndex: 125 }),
+  ranger('ranger-super-duty-xlt', 'Super Duty XLT double cab pick-up', { L: 5447, W: 2197, H: 1975, track: [1710, 1710], fo: 945, floor: 900 }, [4500, 8000, 1900, 2800, 2803, 2701, 4500, 750, 450], { size: '275/70R18', loadIndex: 125 }),
+  f150('f150-xlt-swb', 'XLT SWB', { L: 5884, wb: 3694, box: 1676 }, [3315, 7365, 1565, 1882, 2462, 2368], '275/60R20'),
+  f150('f150-xlt-lwb', 'XLT LWB', { L: 6184, wb: 3994, box: 1981 }, [3360, 7410, 1633, 1882, 2482, 2388], '275/60R20'),
+  f150('f150-lariat-swb', 'Lariat SWB', { L: 5884, wb: 3694, box: 1676 }, [3315, 7365, 1565, 1882, 2546, 2452], '275/60R20'),
+  f150('f150-lariat-lwb', 'Lariat LWB', { L: 6184, wb: 3994, box: 1981 }, [3360, 7410, 1701, 1882, 2566, 2472], '275/60R20'),
+  f150('f150-platinum-swb', 'Platinum SWB', { L: 5884, wb: 3694, box: 1676 }, [3315, 7365, 1565, 1882, 2611, 2517], '275/60R20'),
+  f150('f150-platinum-lwb', 'Platinum LWB', { L: 6184, wb: 3994, box: 1981 }, [3360, 7410, 1701, 1882, 2636, 2542], '275/60R20'),
 ];
 
-// BYD in Australia: the Shark 6 plug-in hybrid ute and three SUVs. Figures from BYD Australia's
-// press material as reported (Auto International, The Driven, Drive, The Beep) and CarExpert,
-// CarsGuide and AEVA listings. The electric Atto 3 and Sealion 7 carry no fuel, so their tare is
-// their kerb weight.
-const SHARK: Body = {
-  bodyStyle: 'ute',
-  wheelbase: 3260,
-  trackFront: 1660,
-  trackRear: 1660,
-  overallLength: 5457,
-  overallWidth: 1971,
-  overallHeight: 1925,
-  frontOverhang: 1000,
-  tub: { length: 1500, width: 1520, depth: 517, floorHeight: 920 },
-  kerbFrontPct: 52,
-};
-const SHARK_TYRE = { size: '265/65R18', loadIndex: 114 };
+// BYD in Australia: the Shark 6 plug-in hybrid ute and the Atto 3, Sealion 6 and Sealion 7 SUVs.
+// Weights, GVM, towing, dimensions, track and tyres are from CarExpert's specification pages; the
+// Shark 6's GCM and tow ball download from BYD Australia's press material. CarExpert gives neither
+// GCM, axle ratings nor front overhang for the SUVs, so those are typical, with the GCM taken as GVM
+// plus braked towing. The electric Atto 3 and Sealion 7 carry no fuel, so their tare is their kerb weight.
+const shark = (id: string, name: string, r: Ratings): Def => ({
+  id,
+  group: 'BYD Shark 6',
+  name,
+  body: {
+    bodyStyle: 'ute',
+    wheelbase: 3260,
+    trackFront: 1660,
+    trackRear: 1660,
+    overallLength: 5457,
+    overallWidth: 1971,
+    overallHeight: 1925,
+    frontOverhang: 927,
+    tub: { length: 1500, width: 1520, depth: 517, floorHeight: 920 },
+    kerbFrontPct: 52,
+  },
+  limits: ratings(r),
+  tyre: { size: '265/65R18', loadIndex: 114 },
+  typical: [],
+});
 
-const suv = (wheelbase: number, length: number, width: number, height: number, frontOverhang: number, track: number, tub: Body['tub'], kerbFrontPct: number): Body => ({
+const suvBody = (wheelbase: number, length: number, width: number, height: number, track: [number, number], frontOverhang: number, tub: Body['tub'], kerbFrontPct: number): Body => ({
   bodyStyle: 'suv',
   wheelbase,
-  trackFront: track,
-  trackRear: track,
+  trackFront: track[0],
+  trackRear: track[1],
   overallLength: length,
   overallWidth: width,
   overallHeight: height,
@@ -736,96 +678,43 @@ const suv = (wheelbase: number, length: number, width: number, height: number, f
   tub,
   kerbFrontPct,
 });
-const ATTO3 = suv(2720, 4455, 1875, 1615, 880, 1575, { length: 900, width: 1100, depth: 750, floorHeight: 760 }, 50);
-const SEALION6 = suv(2765, 4775, 1890, 1670, 950, 1620, { length: 1000, width: 1150, depth: 780, floorHeight: 800 }, 54);
-const SEALION7 = suv(2930, 4830, 1925, 1620, 940, 1630, { length: 1050, width: 1200, depth: 720, floorHeight: 780 }, 48);
+const ATTO3 = suvBody(2720, 4455, 1875, 1615, [1575, 1580], 880, { length: 900, width: 1100, depth: 750, floorHeight: 760 }, 50);
+const SEALION6 = suvBody(2765, 4775, 1890, 1670, [1630, 1630], 950, { length: 1000, width: 1150, depth: 780, floorHeight: 800 }, 54);
+const SEALION7 = suvBody(2930, 4830, 1925, 1620, [1660, 1660], 940, { length: 1050, width: 1200, depth: 720, floorHeight: 780 }, 48);
+
+/** [GVM, kerb, tare, braked tow, unbraked tow] in kg; the axle ratings are typical, split by the kerb weight. */
+const bydSuv = (id: string, name: string, body: Body, [gvm, kerb, tare, brakedTow, unbrakedTow]: [number, number, number, number, number], tyre: Def['tyre']): Def => ({
+  id,
+  group: 'BYD SUVs',
+  name,
+  body,
+  limits: {
+    gvm,
+    gcm: gvm + brakedTow,
+    frontAxle: Math.round((gvm * body.kerbFrontPct) / 100 / 10) * 10 + 100,
+    rearAxle: Math.round((gvm * (100 - body.kerbFrontPct)) / 100 / 10) * 10 + 150,
+    kerb,
+    tare,
+    payload: gvm - kerb,
+    brakedTow,
+    unbrakedTow,
+    towBallMax: Math.round(brakedTow / 10),
+  },
+  tyre,
+  typical: ['ute.limits.gcm', 'ute.limits.frontAxle', 'ute.limits.rearAxle', 'ute.limits.towBallMax', 'ute.frontOverhang'],
+});
 
 const BYD: Def[] = [
-  {
-    id: 'shark6-premium',
-    group: 'BYD Shark 6',
-    name: 'BYD Shark 6 Premium',
-    // Kerb 2,710, GVM 3,500, GCM 5,750 kg, 790 kg payload; 2,500 kg braked, 250 kg on the ball;
-    // axles 1,651 front and 1,927 kg rear (BYD Australia).
-    body: SHARK,
-    limits: { gvm: 3500, gcm: 5750, frontAxle: 1651, rearAxle: 1927, kerb: 2710, tare: 2675, payload: 790, brakedTow: 2500, unbrakedTow: 750, towBallMax: 250 },
-    tyre: SHARK_TYRE,
-    typical: ['ute.limits.tare'],
-  },
-  {
-    id: 'shark6-performance',
-    group: 'BYD Shark 6',
-    name: 'BYD Shark 6 Performance',
-    years: '2026',
-    // 2026 addition: 3,500 kg braked, GCM 6,650 kg, 350 kg on the ball, rear axle 1,900 kg. The Beep
-    // gives a 2,775 kg kerb weight; payload figures disagree.
-    body: SHARK,
-    limits: { gvm: 3500, gcm: 6650, frontAxle: 1651, rearAxle: 1900, kerb: 2775, tare: 2740, payload: 725, brakedTow: 3500, unbrakedTow: 750, towBallMax: 350 },
-    tyre: SHARK_TYRE,
-    typical: ['ute.limits.frontAxle', 'ute.limits.kerb', 'ute.limits.tare', 'ute.limits.payload'],
-  },
-  {
-    id: 'atto3-standard',
-    group: 'BYD SUVs',
-    name: 'BYD Atto 3 Standard Range',
-    years: '2022–2025',
-    // Kerb 1,680, GVM 2,090 kg; 750 kg braked, 700 kg unbraked.
-    body: ATTO3,
-    limits: { gvm: 2090, gcm: 2840, frontAxle: 1150, rearAxle: 1050, kerb: 1680, tare: 1680, payload: 410, brakedTow: 750, unbrakedTow: 700, towBallMax: 75 },
-    tyre: { size: '215/55R18', loadIndex: 95 },
-    typical: [...AXLES_TYPICAL, 'ute.limits.gcm', 'ute.limits.towBallMax'],
-  },
-  {
-    id: 'atto3-extended',
-    group: 'BYD SUVs',
-    name: 'BYD Atto 3 Extended Range',
-    years: '2022–2025',
-    // Kerb 1,750, GVM 2,160 kg; 750 kg braked, 700 kg unbraked.
-    body: ATTO3,
-    limits: { gvm: 2160, gcm: 2910, frontAxle: 1150, rearAxle: 1050, kerb: 1750, tare: 1750, payload: 410, brakedTow: 750, unbrakedTow: 700, towBallMax: 75 },
-    tyre: { size: '215/55R18', loadIndex: 95 },
-    typical: [...AXLES_TYPICAL, 'ute.limits.gcm', 'ute.limits.towBallMax'],
-  },
-  {
-    id: 'sealion6-dynamic',
-    group: 'BYD SUVs',
-    name: 'BYD Sealion 6 Dynamic',
-    // Kerb 1,940 kg; 750 kg braked and unbraked.
-    body: SEALION6,
-    limits: { gvm: 2350, gcm: 3100, frontAxle: 1250, rearAxle: 1200, kerb: 1940, tare: 1905, payload: 410, brakedTow: 750, unbrakedTow: 750, towBallMax: 75 },
-    tyre: { size: '235/50R19', loadIndex: 99 },
-    typical: [...AXLES_TYPICAL, 'ute.limits.gvm', 'ute.limits.gcm', 'ute.limits.tare', 'ute.limits.payload', 'ute.limits.towBallMax'],
-  },
-  {
-    id: 'sealion6-premium',
-    group: 'BYD SUVs',
-    name: 'BYD Sealion 6 Premium AWD',
-    // Kerb 2,100, tare 2,065, GVM 2,510 kg; 1,300 kg braked, 750 kg unbraked.
-    body: SEALION6,
-    limits: { gvm: 2510, gcm: 3810, frontAxle: 1300, rearAxle: 1300, kerb: 2100, tare: 2065, payload: 410, brakedTow: 1300, unbrakedTow: 750, towBallMax: 130 },
-    tyre: { size: '235/50R19', loadIndex: 99 },
-    typical: [...AXLES_TYPICAL, 'ute.limits.gcm', 'ute.limits.towBallMax'],
-  },
-  {
-    id: 'sealion7-premium',
-    group: 'BYD SUVs',
-    name: 'BYD Sealion 7 Premium RWD',
-    // Kerb 2,225, GVM 2,635 kg; 750 kg braked and unbraked; 75 kg trailer nose weight.
-    body: SEALION7,
-    limits: { gvm: 2635, gcm: 3385, frontAxle: 1250, rearAxle: 1450, kerb: 2225, tare: 2225, payload: 410, brakedTow: 750, unbrakedTow: 750, towBallMax: 75 },
-    tyre: { size: '255/45R19', loadIndex: 104 },
-    typical: [...AXLES_TYPICAL, 'ute.limits.gcm'],
-  },
-  {
-    id: 'sealion7-performance',
-    group: 'BYD SUVs',
-    name: 'BYD Sealion 7 Performance AWD',
-    // Kerb 2,340, GVM 2,750 kg; 1,500 kg braked, 750 kg unbraked; 150 kg trailer nose weight.
-    body: SEALION7,
-    limits: { gvm: 2750, gcm: 4250, frontAxle: 1300, rearAxle: 1500, kerb: 2340, tare: 2340, payload: 410, brakedTow: 1500, unbrakedTow: 750, towBallMax: 150 },
-    tyre: { size: '255/45R19', loadIndex: 104 },
-    typical: [...AXLES_TYPICAL, 'ute.limits.gcm'],
-  },
+  shark('shark6-premium', 'BYD Shark 6 Premium', [3500, 5750, 1595, 1905, 2710, 2673, 2500, 750, 250]),
+  shark('shark6-performance', 'BYD Shark 6 Performance', [3500, 6650, 1700, 1900, 2775, 2738, 3500, 750, 350]),
+  bydSuv('atto3-essential', 'BYD Atto 3 Essential', ATTO3, [2090, 1680, 1680, 750, 750], { size: '215/60R17', loadIndex: 95 }),
+  bydSuv('atto3-premium', 'BYD Atto 3 Premium', ATTO3, [2160, 1750, 1750, 750, 750], { size: '235/50R18', loadIndex: 101 }),
+  bydSuv('sealion6-essential', 'BYD Sealion 6 Essential', SEALION6, [2350, 1940, 1903, 750, 750], { size: '235/50R19', loadIndex: 99 }),
+  bydSuv('sealion6-dynamic-extended', 'BYD Sealion 6 Dynamic Extended', SEALION6, [2405, 1995, 1958, 750, 750], { size: '235/50R19', loadIndex: 99 }),
+  bydSuv('sealion6-premium', 'BYD Sealion 6 Premium AWD', SEALION6, [2510, 2100, 2063, 1300, 750], { size: '235/50R19', loadIndex: 99 }),
+  bydSuv('sealion6-premium-extended', 'BYD Sealion 6 Premium Extended AWD', SEALION6, [2570, 2160, 2123, 1300, 750], { size: '235/50R19', loadIndex: 99 }),
+  bydSuv('sealion7-premium', 'BYD Sealion 7 Premium RWD', SEALION7, [2635, 2225, 2225, 750, 750], { size: '255/45R19', loadIndex: 104 }),
+  bydSuv('sealion7-performance', 'BYD Sealion 7 Performance AWD', SEALION7, [2750, 2340, 2340, 1500, 750], { size: '245/45R20', loadIndex: 103 }),
 ];
 
 // For any other make: round figures typical of a mid-size 4x4 diesel dual cab ute (Hilux, Ranger,
