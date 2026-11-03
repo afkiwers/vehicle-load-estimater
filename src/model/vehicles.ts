@@ -15,9 +15,20 @@
 
 import type { UteLimits, UteSpec } from './types';
 
-export type VehicleGroup = 'GWM Cannon Alpha' | 'GWM Cannon' | 'Earlier GWM models' | 'Isuzu D-MAX' | 'Isuzu MU-X' | 'Toyota HiAce' | 'Other makes';
+export type VehicleGroup =
+  | 'BYD Shark 6'
+  | 'BYD SUVs'
+  | 'Ford Ranger'
+  | 'Ford F-150'
+  | 'GWM Cannon Alpha'
+  | 'GWM Cannon'
+  | 'Earlier GWM models'
+  | 'Isuzu D-MAX'
+  | 'Isuzu MU-X'
+  | 'Toyota HiAce'
+  | 'Other makes';
 
-export type VehicleMake = 'GWM' | 'Isuzu' | 'Toyota' | 'Other';
+export type VehicleMake = 'BYD' | 'Ford' | 'GWM' | 'Isuzu' | 'Toyota' | 'Other';
 
 export interface VehicleModel {
   id: string;
@@ -34,6 +45,9 @@ export const DEFAULT_VEHICLE = 'alpha-vanta-30d';
 
 /** Not in any of the maker's brochures. Isuzu gives the track and front overhang, but not how the kerb weight splits. */
 const UNPUBLISHED = {
+  // CarExpert's pages give neither the tub (or cargo floor) nor how the kerb weight splits.
+  Ford: ['ute.tub.length', 'ute.tub.width', 'ute.tub.depth', 'ute.tub.floorHeight', 'ute.kerbFrontPct'],
+  BYD: ['ute.tub.length', 'ute.tub.width', 'ute.tub.depth', 'ute.tub.floorHeight', 'ute.kerbFrontPct'],
   GWM: ['ute.trackFront', 'ute.trackRear', 'ute.frontOverhang', 'ute.tub.floorHeight'],
   Isuzu: ['ute.tub.floorHeight', 'ute.kerbFrontPct'],
   Toyota: [
@@ -60,9 +74,9 @@ const LIMITS = ['gvm', 'gcm', 'frontAxle', 'rearAxle', 'kerb', 'tare', 'payload'
 const EVERYTHING = ['ute.wheelbase', 'ute.trackFront', 'ute.trackRear', ...OVERALL, 'ute.frontOverhang', ...TUB, 'ute.tub.floorHeight', 'ute.kerbFrontPct', 'ute.tyre.size', 'ute.tyre.loadIndex', ...LIMITS];
 
 const makeOf = (group: VehicleGroup): keyof typeof UNPUBLISHED =>
-  group.startsWith('Isuzu') ? 'Isuzu' : group.startsWith('Toyota') ? 'Toyota' : group === 'Other makes' ? 'Generic' : 'GWM';
+  (['BYD', 'Ford', 'GWM', 'Isuzu', 'Toyota'] as const).find((make) => group.includes(make)) ?? 'Generic';
 
-const MAKE: Record<keyof typeof UNPUBLISHED, VehicleMake> = { GWM: 'GWM', Isuzu: 'Isuzu', Toyota: 'Toyota', Generic: 'Other' };
+const MAKE: Record<keyof typeof UNPUBLISHED, VehicleMake> = { BYD: 'BYD', Ford: 'Ford', GWM: 'GWM', Isuzu: 'Isuzu', Toyota: 'Toyota', Generic: 'Other' };
 
 type Body = Pick<
   UteSpec,
@@ -528,6 +542,181 @@ const TOYOTA: Def[] = [
   },
 ];
 
+// Ford utes in Australia: every Ranger dual cab pick-up, and the remanufactured right-hand drive
+// F-150. Figures are CarExpert's specification pages for the current model year (dated 1 September
+// 2026): kerb and tare weight, GVM, GCM, payload, both axle ratings, towing, dimensions, track,
+// front overhang and tyres are as published there. Ford does not publish the tow ball download on
+// those pages, so it is typical, as are the tub and the kerb weight split.
+type Size = { L: number; W: number; H: number; track: [number, number]; fo: number; floor: number };
+/** [GVM, GCM, front axle, rear axle, kerb, tare, braked tow, unbraked tow, tow ball] in kg. */
+type Ratings = [number, number, number, number, number, number, number, number, number];
+
+const ratings = ([gvm, gcm, frontAxle, rearAxle, kerb, tare, brakedTow, unbrakedTow, towBallMax]: Ratings): UteLimits => ({
+  gvm,
+  gcm,
+  frontAxle,
+  rearAxle,
+  kerb,
+  tare,
+  payload: gvm - kerb,
+  brakedTow,
+  unbrakedTow,
+  towBallMax,
+});
+
+const ranger = (id: string, grade: string, z: Size, r: Ratings, tyre: Def['tyre']): Def => ({
+  id,
+  group: 'Ford Ranger',
+  name: `Ford Ranger ${grade}`,
+  body: {
+    bodyStyle: 'ute',
+    wheelbase: 3270,
+    trackFront: z.track[0],
+    trackRear: z.track[1],
+    overallLength: z.L,
+    overallWidth: z.W,
+    overallHeight: z.H,
+    frontOverhang: z.fo,
+    tub: { length: 1564, width: 1584, depth: 528, floorHeight: z.floor },
+    kerbFrontPct: 56,
+  },
+  limits: ratings(r),
+  tyre,
+  typical: ['ute.limits.towBallMax'],
+});
+
+/** The F-150's GVM, GCM, axle ratings, kerb and tare weight (kg); 4,500 kg braked with the 70 mm ball. */
+const f150 = (id: string, grade: string, z: { L: number; wb: number; box: number }, r: [number, number, number, number, number, number], size: string): Def => ({
+  id,
+  group: 'Ford F-150',
+  name: `Ford F-150 ${grade}`,
+  body: {
+    bodyStyle: 'ute',
+    wheelbase: z.wb,
+    trackFront: 1725,
+    trackRear: 1736,
+    overallLength: z.L,
+    overallWidth: 2030,
+    overallHeight: 1995,
+    frontOverhang: 955,
+    tub: { length: z.box, width: 1656, depth: 544, floorHeight: 900 },
+    kerbFrontPct: 57,
+  },
+  // carsales gives 450 kg on the ball; the unbraked rating and tyre load index are not on CarExpert's pages.
+  limits: ratings([...r, 4500, 750, 450]),
+  tyre: { size, loadIndex: 115 },
+  typical: ['ute.limits.towBallMax', 'ute.limits.unbrakedTow', 'ute.tyre.loadIndex'],
+});
+
+const FORD: Def[] = [
+  ranger('ranger-xl-20-4x2', 'XL 2.0L diesel 4x2', { L: 5370, W: 1910, H: 1875, track: [1620, 1620], fo: 865, floor: 840 }, [3200, 6200, 1400, 1959, 2030, 1971, 3500, 750, 350], { size: '255/70R16', loadIndex: 111 }),
+  ranger('ranger-xl-20', 'XL 2.0L diesel 4x4', { L: 5370, W: 1910, H: 1875, track: [1620, 1620], fo: 865, floor: 840 }, [3250, 6200, 1490, 1959, 2126, 2067, 3500, 750, 350], { size: '255/70R16', loadIndex: 111 }),
+  ranger('ranger-xl-v6', 'XL 3.0L V6 4x4', { L: 5370, W: 1910, H: 1875, track: [1620, 1620], fo: 865, floor: 840 }, [3250, 6400, 1490, 1959, 2215, 2156, 3500, 750, 350], { size: '255/70R17', loadIndex: 112 }),
+  ranger('ranger-xl-phev', 'XL PHEV', { L: 5350, W: 1924, H: 1883, track: [1630, 1630], fo: 865, floor: 840 }, [3500, 6580, 1490, 2100, 2566, 2518, 3500, 750, 350], { size: '255/70R16', loadIndex: 111 }),
+  ranger('ranger-xls-20', 'XLS 2.0L diesel 4x4', { L: 5370, W: 1918, H: 1875, track: [1620, 1620], fo: 865, floor: 840 }, [3230, 6350, 1450, 1959, 2172, 2113, 3500, 750, 350], { size: '255/70R16', loadIndex: 111 }),
+  ranger('ranger-xlt-20-4x2', 'XLT 2.0L diesel 4x2', { L: 5370, W: 1918, H: 1886, track: [1620, 1620], fo: 865, floor: 840 }, [3200, 6200, 1400, 1959, 2092, 2033, 3500, 750, 350], { size: '255/70R17', loadIndex: 112 }),
+  ranger('ranger-xlt-20', 'XLT 2.0L diesel 4x4', { L: 5370, W: 1918, H: 1886, track: [1620, 1620], fo: 865, floor: 840 }, [3230, 6350, 1450, 1959, 2209, 2150, 3500, 750, 350], { size: '255/70R17', loadIndex: 112 }),
+  ranger('ranger-xlt-v6', 'XLT 3.0L V6 4x4', { L: 5370, W: 1918, H: 1886, track: [1620, 1620], fo: 865, floor: 840 }, [3350, 6400, 1490, 1959, 2251, 2192, 3500, 750, 350], { size: '255/70R17', loadIndex: 112 }),
+  ranger('ranger-xlt-phev', 'XLT PHEV', { L: 5350, W: 1924, H: 1871, track: [1630, 1630], fo: 865, floor: 840 }, [3500, 6580, 1490, 2100, 2527, 2479, 3500, 750, 350], { size: '255/70R17', loadIndex: 112 }),
+  ranger('ranger-sport-20', 'Sport 2.0L diesel 4x4', { L: 5370, W: 1918, H: 1886, track: [1620, 1620], fo: 865, floor: 840 }, [3230, 6350, 1450, 1959, 2220, 2161, 3500, 750, 350], { size: '255/65R18', loadIndex: 111 }),
+  ranger('ranger-sport-v6', 'Sport 3.0L V6 4x4', { L: 5370, W: 1918, H: 1886, track: [1620, 1620], fo: 865, floor: 840 }, [3280, 6400, 1490, 1959, 2276, 2217, 3500, 750, 350], { size: '255/65R18', loadIndex: 111 }),
+  ranger('ranger-sport-phev', 'Sport PHEV', { L: 5350, W: 1924, H: 1883, track: [1630, 1630], fo: 865, floor: 840 }, [3500, 6580, 1490, 2100, 2566, 2518, 3500, 750, 350], { size: '255/65R18', loadIndex: 111 }),
+  ranger('ranger-black-20', 'Black Edition 2.0L diesel 4x4', { L: 5370, W: 1918, H: 1875, track: [1620, 1620], fo: 865, floor: 840 }, [3250, 6200, 1490, 1959, 2190, 2131, 3500, 750, 350], { size: '255/70R17', loadIndex: 111 }),
+  ranger('ranger-black-v6', 'Black Edition 3.0L V6 4x4', { L: 5370, W: 1918, H: 1875, track: [1620, 1620], fo: 865, floor: 840 }, [3250, 6400, 1490, 1959, 2254, 2195, 3500, 750, 350], { size: '255/70R17', loadIndex: 111 }),
+  ranger('ranger-wildtrak-20', 'Wildtrak 2.0L diesel 4x4', { L: 5370, W: 1918, H: 1886, track: [1620, 1620], fo: 865, floor: 840 }, [3280, 6350, 1490, 1959, 2283, 2279, 3500, 750, 350], { size: '255/65R18', loadIndex: 111 }),
+  ranger('ranger-wildtrak-v6', 'Wildtrak 3.0L V6 4x4', { L: 5370, W: 1918, H: 1886, track: [1620, 1620], fo: 865, floor: 840 }, [3350, 6400, 1490, 1959, 2331, 2272, 3500, 750, 350], { size: '255/65R18', loadIndex: 111 }),
+  ranger('ranger-wildtrak-phev', 'Wildtrak PHEV', { L: 5350, W: 1924, H: 1878, track: [1630, 1630], fo: 865, floor: 840 }, [3500, 6580, 1490, 2100, 2615, 2567, 3500, 750, 350], { size: '255/65R18', loadIndex: 111 }),
+  ranger('ranger-wolftrak-v6', 'Wolftrak 3.0L V6 4x4', { L: 5370, W: 1918, H: 1886, track: [1620, 1620], fo: 865, floor: 840 }, [3350, 6400, 1490, 1959, 2295, 2236, 3500, 750, 350], { size: '255/70R17', loadIndex: 111 }),
+  ranger('ranger-tremor-v6', 'Tremor 3.0L V6 4x4', { L: 5370, W: 1949, H: 1914, track: [1650, 1650], fo: 865, floor: 840 }, [3350, 6400, 1490, 1959, 2317, 2258, 3500, 750, 350], { size: '255/70R17', loadIndex: 111 }),
+  ranger('ranger-platinum-v6', 'Platinum 3.0L V6 4x4', { L: 5370, W: 1918, H: 1920, track: [1620, 1620], fo: 865, floor: 840 }, [3300, 6400, 1490, 1959, 2369, 2310, 3500, 750, 350], { size: '255/55R20', loadIndex: 110 }),
+  ranger('ranger-raptor', 'Raptor 3.0L V6 petrol', { L: 5380, W: 2028, H: 1926, track: [1710, 1710], fo: 865, floor: 900 }, [3160, 5400, 1520, 1700, 2407, 2355, 2500, 750, 250], { size: '285/70R17', loadIndex: 116 }),
+  ranger('ranger-super-duty', 'Super Duty double cab pick-up', { L: 5447, W: 2197, H: 1975, track: [1710, 1710], fo: 945, floor: 900 }, [4500, 8000, 1900, 2800, 2803, 2701, 4500, 750, 450], { size: '275/70R18', loadIndex: 125 }),
+  ranger('ranger-super-duty-xlt', 'Super Duty XLT double cab pick-up', { L: 5447, W: 2197, H: 1975, track: [1710, 1710], fo: 945, floor: 900 }, [4500, 8000, 1900, 2800, 2803, 2701, 4500, 750, 450], { size: '275/70R18', loadIndex: 125 }),
+  f150('f150-xlt-swb', 'XLT SWB', { L: 5884, wb: 3694, box: 1676 }, [3315, 7365, 1565, 1882, 2462, 2368], '275/60R20'),
+  f150('f150-xlt-lwb', 'XLT LWB', { L: 6184, wb: 3994, box: 1981 }, [3360, 7410, 1633, 1882, 2482, 2388], '275/60R20'),
+  f150('f150-lariat-swb', 'Lariat SWB', { L: 5884, wb: 3694, box: 1676 }, [3315, 7365, 1565, 1882, 2546, 2452], '275/60R20'),
+  f150('f150-lariat-lwb', 'Lariat LWB', { L: 6184, wb: 3994, box: 1981 }, [3360, 7410, 1701, 1882, 2566, 2472], '275/60R20'),
+  f150('f150-platinum-swb', 'Platinum SWB', { L: 5884, wb: 3694, box: 1676 }, [3315, 7365, 1565, 1882, 2611, 2517], '275/60R20'),
+  f150('f150-platinum-lwb', 'Platinum LWB', { L: 6184, wb: 3994, box: 1981 }, [3360, 7410, 1701, 1882, 2636, 2542], '275/60R20'),
+];
+
+// BYD in Australia: the Shark 6 plug-in hybrid ute and the Atto 3, Sealion 6 and Sealion 7 SUVs.
+// Weights, GVM, towing, dimensions, track and tyres are from CarExpert's specification pages; the
+// Shark 6's GCM and tow ball download from BYD Australia's press material. CarExpert gives neither
+// GCM, axle ratings nor front overhang for the SUVs, so those are typical, with the GCM taken as GVM
+// plus braked towing. The electric Atto 3 and Sealion 7 carry no fuel, so their tare is their kerb weight.
+const shark = (id: string, name: string, r: Ratings): Def => ({
+  id,
+  group: 'BYD Shark 6',
+  name,
+  body: {
+    bodyStyle: 'ute',
+    wheelbase: 3260,
+    trackFront: 1660,
+    trackRear: 1660,
+    overallLength: 5457,
+    overallWidth: 1971,
+    overallHeight: 1925,
+    frontOverhang: 927,
+    tub: { length: 1500, width: 1520, depth: 517, floorHeight: 920 },
+    kerbFrontPct: 52,
+  },
+  limits: ratings(r),
+  tyre: { size: '265/65R18', loadIndex: 114 },
+  typical: [],
+});
+
+const suvBody = (wheelbase: number, length: number, width: number, height: number, track: [number, number], frontOverhang: number, tub: Body['tub'], kerbFrontPct: number): Body => ({
+  bodyStyle: 'suv',
+  wheelbase,
+  trackFront: track[0],
+  trackRear: track[1],
+  overallLength: length,
+  overallWidth: width,
+  overallHeight: height,
+  frontOverhang,
+  tub,
+  kerbFrontPct,
+});
+const ATTO3 = suvBody(2720, 4455, 1875, 1615, [1575, 1580], 880, { length: 900, width: 1100, depth: 750, floorHeight: 760 }, 50);
+const SEALION6 = suvBody(2765, 4775, 1890, 1670, [1630, 1630], 950, { length: 1000, width: 1150, depth: 780, floorHeight: 800 }, 54);
+const SEALION7 = suvBody(2930, 4830, 1925, 1620, [1660, 1660], 940, { length: 1050, width: 1200, depth: 720, floorHeight: 780 }, 48);
+
+/** [GVM, kerb, tare, braked tow, unbraked tow] in kg; the axle ratings are typical, split by the kerb weight. */
+const bydSuv = (id: string, name: string, body: Body, [gvm, kerb, tare, brakedTow, unbrakedTow]: [number, number, number, number, number], tyre: Def['tyre']): Def => ({
+  id,
+  group: 'BYD SUVs',
+  name,
+  body,
+  limits: {
+    gvm,
+    gcm: gvm + brakedTow,
+    frontAxle: Math.round((gvm * body.kerbFrontPct) / 100 / 10) * 10 + 100,
+    rearAxle: Math.round((gvm * (100 - body.kerbFrontPct)) / 100 / 10) * 10 + 150,
+    kerb,
+    tare,
+    payload: gvm - kerb,
+    brakedTow,
+    unbrakedTow,
+    towBallMax: Math.round(brakedTow / 10),
+  },
+  tyre,
+  typical: ['ute.limits.gcm', 'ute.limits.frontAxle', 'ute.limits.rearAxle', 'ute.limits.towBallMax', 'ute.frontOverhang'],
+});
+
+const BYD: Def[] = [
+  shark('shark6-premium', 'BYD Shark 6 Premium', [3500, 5750, 1595, 1905, 2710, 2673, 2500, 750, 250]),
+  shark('shark6-performance', 'BYD Shark 6 Performance', [3500, 6650, 1700, 1900, 2775, 2738, 3500, 750, 350]),
+  bydSuv('atto3-essential', 'BYD Atto 3 Essential', ATTO3, [2090, 1680, 1680, 750, 750], { size: '215/60R17', loadIndex: 95 }),
+  bydSuv('atto3-premium', 'BYD Atto 3 Premium', ATTO3, [2160, 1750, 1750, 750, 750], { size: '235/50R18', loadIndex: 101 }),
+  bydSuv('sealion6-essential', 'BYD Sealion 6 Essential', SEALION6, [2350, 1940, 1903, 750, 750], { size: '235/50R19', loadIndex: 99 }),
+  bydSuv('sealion6-dynamic-extended', 'BYD Sealion 6 Dynamic Extended', SEALION6, [2405, 1995, 1958, 750, 750], { size: '235/50R19', loadIndex: 99 }),
+  bydSuv('sealion6-premium', 'BYD Sealion 6 Premium AWD', SEALION6, [2510, 2100, 2063, 1300, 750], { size: '235/50R19', loadIndex: 99 }),
+  bydSuv('sealion6-premium-extended', 'BYD Sealion 6 Premium Extended AWD', SEALION6, [2570, 2160, 2123, 1300, 750], { size: '235/50R19', loadIndex: 99 }),
+  bydSuv('sealion7-premium', 'BYD Sealion 7 Premium RWD', SEALION7, [2635, 2225, 2225, 750, 750], { size: '255/45R19', loadIndex: 104 }),
+  bydSuv('sealion7-performance', 'BYD Sealion 7 Performance AWD', SEALION7, [2750, 2340, 2340, 1500, 750], { size: '245/45R20', loadIndex: 103 }),
+];
+
 // For any other make: round figures typical of a mid-size 4x4 diesel dual cab ute (Hilux, Ranger,
 // BT-50, Triton class) and of a large five-seat SUV that tows, all placeholders for the placard's.
 const GENERIC: Def[] = [
@@ -573,11 +762,11 @@ const GENERIC: Def[] = [
   },
 ];
 
-export const VEHICLES: VehicleModel[] = [...DEFS, ...ISUZU, ...TOYOTA, ...GENERIC].map((d) => ({
+export const VEHICLES: VehicleModel[] = [...BYD, ...FORD, ...DEFS, ...ISUZU, ...TOYOTA, ...GENERIC].map((d) => ({
   id: d.id,
   make: MAKE[makeOf(d.group)],
   group: d.group,
-  label: d.name.replace(/^(GWM|Isuzu|Toyota) /, '') + (d.years ? ` (${d.years})` : ''),
+  label: d.name.replace(/^(BYD|Ford|GWM|Isuzu|Toyota) /, '') + (d.years ? ` (${d.years})` : ''),
   spec: () => ({
     model: d.id,
     name: d.name,
@@ -591,13 +780,15 @@ export const VEHICLES: VehicleModel[] = [...DEFS, ...ISUZU, ...TOYOTA, ...GENERI
 
 /** Makes in picker order, as shown. */
 export const VEHICLE_MAKES: { make: VehicleMake; label: string }[] = [
+  { make: 'BYD', label: 'BYD' },
+  { make: 'Ford', label: 'Ford' },
   { make: 'GWM', label: 'GWM' },
   { make: 'Isuzu', label: 'Isuzu' },
   { make: 'Toyota', label: 'Toyota' },
   { make: 'Other', label: 'Other make (generic)' },
 ];
 
-export const VEHICLE_GROUPS: VehicleGroup[] = ['GWM Cannon Alpha', 'GWM Cannon', 'Earlier GWM models', 'Isuzu D-MAX', 'Isuzu MU-X', 'Toyota HiAce', 'Other makes'];
+export const VEHICLE_GROUPS: VehicleGroup[] = ['BYD Shark 6', 'BYD SUVs', 'Ford Ranger', 'Ford F-150', 'GWM Cannon Alpha', 'GWM Cannon', 'Earlier GWM models', 'Isuzu D-MAX', 'Isuzu MU-X', 'Toyota HiAce', 'Other makes'];
 
 export function vehicleModel(id: string): VehicleModel {
   return VEHICLES.find((v) => v.id === id) ?? VEHICLES.find((v) => v.id === DEFAULT_VEHICLE)!;
