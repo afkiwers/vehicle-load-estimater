@@ -27,6 +27,13 @@ export type VersionState =
 /** Asked for by the "Upgrade" button of an older version: the latest version opens with the upgrade offered. */
 export const UPGRADE_PARAM = 'upgrade';
 
+/**
+ * GitHub Pages lets browsers keep the root page for 10 minutes, so right after a release it can
+ * still be the previous version. The root is always the latest, so when versions.json (always
+ * fetched fresh) names a newer one, the page reloads under an address the browser hasn't cached.
+ */
+export const FRESH_PARAM = 'fresh';
+
 export const versionUrl = (version: string) => `${APP_URL}v/${version}/`;
 
 interface Context {
@@ -43,11 +50,16 @@ interface Context {
 }
 
 export function decideVersion({ settings, build = DATA_VERSION, manifest, atRoot, search, hash }: Context): VersionState {
+  const params = new URLSearchParams(search);
+  if (atRoot && manifest && compareVersions(manifest.latest, build) > 0 && params.get(FRESH_PARAM) !== manifest.latest) {
+    params.set(FRESH_PARAM, manifest.latest);
+    return { kind: 'redirect', url: `${APP_URL}?${params.toString().replace(/=(?=&|$)/g, '')}${hash}` };
+  }
   if (settings === null) return { kind: 'current' };
   const rel = relation(settings, build);
   if (rel === 'newer') return { kind: 'newer', settings, latestUrl: APP_URL + hash };
   const latest = manifest && compareVersions(manifest.latest, build) > 0 ? manifest.latest : build;
-  const upgrading = new URLSearchParams(search).has(UPGRADE_PARAM);
+  const upgrading = params.has(UPGRADE_PARAM);
   if (rel === 'older') {
     // Older settings open in the version that saved them, unless the person asked to upgrade.
     if (atRoot && manifest?.versions.includes(settings) && !upgrading) return { kind: 'redirect', url: versionUrl(settings) + hash };
