@@ -67,6 +67,8 @@ Pick your vehicle under **Make and model** at the top of the Vehicle tab. The de
 - **Earlier GWM models:** Cannon Alpha Ultra and Lux 2.4L diesel (2024–2026) and Ultra Hybrid (2024–2025), Cannon Vanta 2.0L diesel (2023–2024), Cannon-X and Cannon-L 2.0L diesel (2021–2024)
 - **Isuzu D-MAX** crew cab with tub: SX 2.2L and 3.0L diesel and LS-U 3.0L diesel 4x2; SX and X-RIDER 2.2L and 3.0L diesel, LS-U, LS-U+, X-TERRAIN and BLADE 3.0L diesel 4x4
 - **Isuzu MU-X** (SUV): LS-M 2.2L diesel 4x2; LS-M, LS-U and LS-T 2.2L and 3.0L diesel and X-TERRAIN 3.0L diesel 4x4
+- **Toyota HiLux:** every dual cab pick-up: WorkMate and SR 2.8L diesel 4x2 and 4x4, SR5 2.8L diesel (automatic and manual), Rogue, Rugged X, and the electric SR and SR5
+- **Toyota Tundra:** Limited and Platinum
 - **Toyota HiAce:** 2009 LWB panel van, 2.7L petrol and 3.0L diesel, drawn as a cab-over van with three front seats and the cargo area behind a bulkhead
 - **Other makes:** a generic dual cab ute and a generic car (five-seat SUV)
 
@@ -75,6 +77,8 @@ If your vehicle is not in the list, pick the generic ute or car. They start with
 The current GWM range uses the figures in GWM Australia's brochures (Cannon Alpha, 14 October 2026; Cannon, 16 October 2026): GVM, GCM, axle limits, kerb and tare weights, payload, towing, tyres and dimensions, and for the Cannon also the tub size and how the kerb weight splits between the axles. Earlier GWM models are no longer in a brochure; their weights and towing ratings come from Australian spec listings (CarExpert, carsales, Drive, CarsGuide, 4X4 Australia), and their axle limits, tare and tub sizes are typical values from the closest current model.
 
 The Ford and BYD figures are from CarExpert's specification pages for the current model year: kerb and tare weight, GVM, GCM, payload, towing, dimensions, track and tyres for every variant, and axle ratings and front overhang for the Rangers, F-150s and Shark 6. The Shark 6's GCM and tow ball download come from BYD Australia's press material. Ford does not publish the tow ball download there, so it is a placeholder (350 kg for the Ranger, 250 kg for the Raptor, 450 kg for the Super Duty and F-150), as are the F-150's unbraked towing and tyre load index, and the BYD SUVs' GCM, axle ratings, tow ball download and front overhang. The tub or cargo floor and the kerb weight split are placeholders throughout. The electric Atto 3 and Sealion 7 carry no fuel, so their tare is their kerb weight. The Ranger Super Duty and Shark 6 cab-chassis are not in the list because their published kerb weight is without the tray.
+
+The HiLux and Tundra figures are from CarExpert's specification pages for the current model year: kerb and tare weight, GVM, GCM, payload, towing, dimensions, track, front overhang and tyres, and the axle ratings where given (the HiLux 4x2s and the Tundra). The other axle ratings, the tow ball download, the electric HiLux's and Tundra's GCM, and the tub and kerb weight split are placeholders. The LandCruiser 70 is not in the list because it is sold as a cab-chassis.
 
 The 2009 HiAce LWB van has GVM 2,800 kg and 1,400 kg braked towing from Australian spec listings (GoAuto, CarsGuide, carsales), with the petrol's tare and kerb weight from carsales. Its axle ratings, tow ball download, track, front overhang, cargo area and kerb weight split are not in those listings and are marked placeholder, as are the diesel's kerb weight and GCM, which come from a review of a later year. Check them against the compliance plate on the driver's door pillar.
 
