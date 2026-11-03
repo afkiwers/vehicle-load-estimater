@@ -14,7 +14,8 @@ describe('vehicle models', () => {
     expect(ute.ute.model).toBe(id);
     expect(lim.kerb! + lim.payload!).toBe(lim.gvm);
     expect(lim.gcm!).toBeGreaterThan(lim.gvm!);
-    expect(lim.tare!).toBeLessThan(lim.kerb!);
+    // Tare is kerb less most of the fuel; an electric car has none, so its tare is its kerb weight.
+    expect(lim.tare!).toBeLessThanOrEqual(lim.kerb!);
     expect(lim.towBallMax!).toBeLessThanOrEqual(lim.brakedTow! * 0.1);
     // Axle limits together must allow the GVM.
     expect(lim.frontAxle! + lim.rearAxle!).toBeGreaterThanOrEqual(lim.gvm!);
@@ -143,5 +144,18 @@ describe('vehicle models', () => {
     expect(vehicleModel('hiace-lwb-30d-2009').make).toBe('Toyota');
     expect(vehicleModel('mux-lst-30d').make).toBe('Isuzu');
     expect(vehicleModel('generic-car').make).toBe('Other');
+  });
+
+  it('has the Ford and BYD ranges under their own makes', () => {
+    expect(vehicleModel('ranger-wildtrak-v6')).toMatchObject({ make: 'Ford', group: 'Ford Ranger' });
+    expect(vehicleModel('ranger-wildtrak-v6').spec().limits).toMatchObject({ gvm: 3350, gcm: 6400, kerb: 2427, payload: 923, brakedTow: 3500 });
+    expect(vehicleModel('ranger-raptor').spec().limits).toMatchObject({ gvm: 3130, kerb: 2413, brakedTow: 2500 });
+    expect(vehicleModel('f150-xlt-lwb').spec()).toMatchObject({ wheelbase: 3987, limits: { gvm: 3360, gcm: 7410, payload: 878, brakedTow: 4500 } });
+    expect(vehicleModel('shark6-premium')).toMatchObject({ make: 'BYD', group: 'BYD Shark 6' });
+    expect(vehicleModel('shark6-premium').spec().limits).toMatchObject({ gvm: 3500, kerb: 2710, payload: 790, brakedTow: 2500, towBallMax: 250 });
+    expect(vehicleModel('sealion7-premium').spec()).toMatchObject({ bodyStyle: 'suv', limits: { gvm: 2635, kerb: 2225, tare: 2225 } });
+    // Unconfirmed figures stay placeholders.
+    expect(vehicleModel('ranger-xlt-v6').placeholders).toEqual(expect.arrayContaining(['ute.limits.kerb', 'ute.limits.frontAxle']));
+    expect(vehicleModel('shark6-premium').placeholders).not.toContain('ute.limits.rearAxle');
   });
 });
