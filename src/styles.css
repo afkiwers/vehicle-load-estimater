@@ -66,6 +66,10 @@ button {
   height: 100%;
 }
 
+.app:has(> .version-banner) {
+  grid-template-rows: auto auto 1fr;
+}
+
 .main {
   display: grid;
   grid-template-columns: 250px minmax(0, 1fr) 420px;
@@ -1783,5 +1787,57 @@ table.loads tr.total td {
   }
   .print-root tr {
     page-break-inside: avoid;
+  }
+}
+
+.version-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px max(16px, env(safe-area-inset-right, 0px)) 8px max(16px, env(safe-area-inset-left, 0px));
+  background: #eaf2fd;
+  border-bottom: 2px solid #2f6fcf;
+  color: var(--text);
+  font-size: 13.5px;
+  line-height: 1.4;
+}
+
+.version-banner.newer {
+  background: var(--near-soft);
+  border-bottom-color: var(--near);
+}
+
+.vb-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.version-banner .btn {
+  flex: none;
+}
+
+@media (max-width: 640px) {
+  .version-banner {
+    flex-wrap: wrap;
+  }
+  .vb-text {
+    flex-basis: 100%;
+  }
+}
+
+.upgrade-notes {
+  margin: 0 0 12px;
+  padding-left: 18px;
+  line-height: 1.5;
+}
+
+.upgrade-notes ul {
+  margin: 2px 0 6px;
+  padding-left: 18px;
+}
+
+@media print {
+  .version-banner {
+    display: none;
   }
 }

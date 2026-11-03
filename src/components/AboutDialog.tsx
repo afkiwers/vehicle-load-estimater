@@ -3,6 +3,8 @@ import { REVISION } from 'three';
 import { APP_URL, BUILD, LATEST_RELEASE_API, REPO_URL, isNewer, versionReport, versionRows } from '../build';
 import { CopyIcon, copy } from './clipboard';
 import { Modal } from './Modal';
+import { useStore } from '../state/store';
+import { isRoot } from '../state/versioning';
 
 type Latest = { state: 'checking' } | { state: 'failed' } | { state: 'found'; tag: string; url: string };
 
@@ -45,6 +47,42 @@ const LINKS = [
   { label: 'Releases and downloads', href: `${REPO_URL}/releases` },
   { label: 'Report a problem', href: `${REPO_URL}/issues/new` },
 ];
+
+/** Which version the settings were saved with, and the backup kept from before the last upgrade. */
+function SettingsSection({ onClose }: { onClose: () => void }) {
+  const dataVersion = useStore((s) => s.dataVersion);
+  const backup = useStore((s) => s.backup);
+  const restoreBackup = useStore((s) => s.restoreBackup);
+  return (
+    <>
+      <div className="about-section">
+        <h3>Your settings</h3>
+      </div>
+      <p className="about-note">
+        Saved with version <strong>{dataVersion}</strong>.
+        {backup
+          ? ` Before the last upgrade they were from ${backup.version}; that copy (${backup.order.length} setup${backup.order.length === 1 ? '' : 's'}, upgraded ${new Date(backup.at).toLocaleDateString('en-AU')}) is kept until the next upgrade.`
+          : ''}
+      </p>
+      {backup && (
+        <div className="btn-row" style={{ marginBottom: 12 }}>
+          <button
+            className="btn"
+            onClick={() => {
+              if (!confirm(`Put back your settings from version ${backup.version}? Your current setups are replaced; the site then opens in version ${backup.version} and offers the upgrade again.`)) return;
+              restoreBackup();
+              onClose();
+              // The restored settings belong to the older version: let the site open it.
+              location.assign(isRoot() ? location.pathname : APP_URL);
+            }}
+          >
+            Restore settings from {backup.version}
+          </button>
+        </div>
+      )}
+    </>
+  );
+}
 
 export function AboutDialog({ onClose }: { onClose: () => void }) {
   const latest = useLatestRelease();
@@ -94,6 +132,8 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
           ))}
         </tbody>
       </table>
+
+      <SettingsSection onClose={onClose} />
 
       <div className="about-section">
         <h3>Links</h3>

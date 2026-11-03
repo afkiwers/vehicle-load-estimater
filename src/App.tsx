@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { overallStatus } from './model/calc';
 import type { Setup } from './model/types';
-import { decodeSetup, sharePayload } from './share';
+import { decodeSetup, sharePayload, shareVersion } from './share';
 import { useStore } from './state/store';
 import { useResult } from './state/result';
 import { NARROW, paletteDefault, useUi, type Tab } from './state/ui';
@@ -16,6 +16,7 @@ import { Report } from './components/Report';
 import { deleteItem, duplicateItem } from './components/Inspector';
 import { SharedSetupDialog } from './components/ShareDialog';
 import { Disclaimer } from './components/Disclaimer';
+import { VersionBanner } from './components/VersionBanner';
 
 const DOT: Record<string, string> = {
   ok: 'var(--ok)',
@@ -118,13 +119,16 @@ function useSharedSetup(): [Setup | null, () => void] {
     const check = () => {
       const payload = sharePayload(location.hash);
       if (!payload) return;
+      const version = shareVersion(location.hash);
       try {
         history.replaceState(null, '', location.pathname + location.search);
       } catch {
         location.hash = '';
       }
-      decodeSetup(payload).then(setShared, () =>
-        useUi.getState().showToast("This share link is incomplete or damaged, so there's nothing to add. Ask for it again."),
+      decodeSetup(payload, version).then(setShared, (err: Error) =>
+        useUi
+          .getState()
+          .showToast(/newer than this copy/.test(err.message) ? err.message : "This share link is incomplete or damaged, so there's nothing to add. Ask for it again."),
       );
     };
     check();
@@ -141,6 +145,7 @@ export function App() {
   const [shared, closeShared] = useSharedSetup();
   return (
     <div className="app">
+      <VersionBanner />
       <TopBar />
       <main className={`main ${paletteOpen ? 'palette-open' : 'palette-closed'}`}>
         {paletteOpen && <div className="palette-backdrop" onClick={() => useUi.getState().setPaletteOpen(false)} />}

@@ -21,6 +21,16 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Check the tag matches package.json
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          # Settings are stamped with package.json's version, so it must be the release's.
+          want="$(node -p "require('./package.json').version")"
+          if [ "${TAG#v}" != "$want" ]; then
+            echo "::error::Release tag $TAG does not match package.json version $want. Bump package.json first."
+            exit 1
+          fi
       - run: npm test
       - name: Build, stamped with the release
         env:
@@ -40,18 +50,26 @@ jobs:
           cp vehicle-load-estimator.html ute-load-estimator.html
           gh release upload "$TAG" vehicle-load-estimator.html ute-load-estimator.html --clobber --repo "$GITHUB_REPOSITORY"
       - name: Publish to GitHub Pages
-        # The gh-pages branch holds only the latest release, as a single commit.
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.event.release.tag_name }}
         run: |
-          mkdir site
-          cp vehicle-load-estimator.html site/index.html
+          # Every release stays online at v/<version>/, so settings saved with it open in it; the
+          # newest is also the root page, and versions.json lists them all.
+          remote="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git ls-remote --exit-code --heads "$remote" gh-pages >/dev/null; then
+            git clone -q --depth 1 --branch gh-pages "$remote" site
+          else
+            git init -q -b gh-pages site
+          fi
+          version="${TAG#v}"
+          mkdir -p "site/v/$version"
+          cp vehicle-load-estimator.html "site/v/$version/index.html"
           touch site/.nojekyll
+          node scripts/versions-manifest.mjs site "$version"
           cd site
-          git init -q -b gh-pages
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -q -m "Publish $TAG"
-          git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" gh-pages
+          git push -q "$remote" HEAD:gh-pages

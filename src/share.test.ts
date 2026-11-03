@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { decodeSetup, encodeSetup, sharePayload, shareUrl } from './share';
+import { decodeSetup, encodeSetup, sharePayload, shareUrl, shareVersion } from './share';
+import { DATA_VERSION } from './model/versions';
 import { ITEM_TEMPLATES, applyVehicle, itemFromTemplate, newSetup } from './model/presets';
 
 function loaded() {
@@ -25,13 +26,17 @@ describe('share links', () => {
   });
 
   it('points a downloaded copy at the online app, and anything else at itself', () => {
-    expect(shareUrl('zAB', { protocol: 'file:', origin: 'null', pathname: '/x.html' })).toBe('https://afkiwers.github.io/vehicle-load-estimater/#s=zAB');
-    expect(shareUrl('zAB', { protocol: 'http:', origin: 'http://localhost:5173', pathname: '/' })).toBe('http://localhost:5173/#s=zAB');
+    expect(shareUrl('zAB', { protocol: 'file:', origin: 'null', pathname: '/x.html' })).toBe(`https://afkiwers.github.io/vehicle-load-estimater/#s=zAB&v=${DATA_VERSION}`);
+    expect(shareUrl('zAB', { protocol: 'http:', origin: 'http://localhost:5173', pathname: '/' })).toBe(`http://localhost:5173/#s=zAB&v=${DATA_VERSION}`);
   });
 
   it('finds the setup in the address and rejects damaged links', async () => {
     expect(sharePayload('#s=zAb-_9')).toBe('zAb-_9');
     expect(sharePayload('#other')).toBeNull();
+    // Links carry the version that made them; older links don't.
+    expect(sharePayload('#s=zAb&v=1.4.0')).toBe('zAb');
+    expect(shareVersion('#s=zAb&v=1.4.0')).toBe('1.4.0');
+    expect(shareVersion('#s=zAb')).toBeNull();
     const payload = await encodeSetup(loaded());
     await expect(decodeSetup(payload.slice(0, 40))).rejects.toThrow();
     await expect(decodeSetup('q' + payload.slice(1))).rejects.toThrow();
@@ -42,5 +47,11 @@ describe('share links', () => {
     const bytes = new TextEncoder().encode(JSON.stringify(s));
     const plain = 'j' + btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     expect((await decodeSetup(plain)).name).toBe('Lap of Australia');
+  });
+
+  it('refuses a link made by a newer version, which it cannot read safely', async () => {
+    const payload = await encodeSetup(loaded());
+    await expect(decodeSetup(payload, '99.0.0')).rejects.toThrow(/newer than this copy/);
+    expect((await decodeSetup(payload, DATA_VERSION)).name).toBe('Lap of Australia');
   });
 });
