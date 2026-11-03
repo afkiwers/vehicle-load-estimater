@@ -1,5 +1,5 @@
 /// <reference types="vitest/config" />
-import { copyFileSync } from 'node:fs';
+import { copyFileSync, readFileSync } from 'node:fs';
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { viteSingleFile } from 'vite-plugin-singlefile';
@@ -26,11 +26,15 @@ const build = {
   buildDate: process.env.APP_BUILD_DATE || null,
 };
 
+// The version settings are saved under: package.json's, which the release workflow keeps equal to the tag.
+const dataVersion = JSON.parse(readFileSync('package.json', 'utf8')).version as string;
+
 export default defineConfig({
   base: './',
   plugins: [react(), viteSingleFile(), copyRelease()],
   define: {
     __BUILD__: JSON.stringify(build),
+    __DATA_VERSION__: JSON.stringify(dataVersion),
   },
   build: {
     outDir: 'dist',

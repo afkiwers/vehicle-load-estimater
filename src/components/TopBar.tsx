@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import type { Setup } from '../model/types';
 import { BUILD, versionLabel } from '../build';
+import { savedWith } from '../model/versions';
 import { useStore } from '../state/store';
 import { sceneBridge, useUi } from '../state/ui';
 import { AboutDialog } from './AboutDialog';
@@ -19,11 +20,13 @@ function download(name: string, text: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function parseImport(text: string): Setup[] {
+/** The setups in an exported file, and the version that saved them (null for files from before files carried it). */
+export function parseImport(text: string): { setups: Setup[]; version: string | null } {
   const data = JSON.parse(text);
-  if (Array.isArray(data)) return data;
-  if (Array.isArray(data?.setups)) return data.setups;
-  if (data?.ute && data?.items) return [data];
+  if (Array.isArray(data)) return { setups: data, version: null };
+  const version = typeof data?.appVersion === 'string' ? data.appVersion : null;
+  if (Array.isArray(data?.setups)) return { setups: data.setups, version };
+  if (data?.ute && data?.items) return { setups: [data], version };
   throw new Error('Not an export from this tool.');
 }
 
@@ -38,7 +41,7 @@ export function printReport() {
 }
 
 export function TopBar() {
-  const { setups, order, activeId, selectSetup, createSetup, duplicateSetup, renameSetup, deleteSetup, importSetups, undo, redo } = useStore();
+  const { setups, order, activeId, dataVersion, selectSetup, createSetup, duplicateSetup, renameSetup, deleteSetup, importSetups, undo, redo } = useStore();
   const canUndo = useStore((s) => s.history.past.length > 0);
   const canRedo = useStore((s) => s.history.future.length > 0);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -103,7 +106,7 @@ export function TopBar() {
           className="tb-btn"
           title="Save all setups to a file"
           onClick={() => {
-            const data = { app: 'ute-load-estimator', version: 1, exportedAt: new Date().toISOString(), setups: order.map((id) => setups[id]) };
+            const data = { app: 'ute-load-estimator', version: 1, appVersion: dataVersion, exportedAt: new Date().toISOString(), setups: order.map((id) => setups[id]) };
             download(`vehicle-load-setups-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(data, null, 2));
           }}
         >
@@ -122,7 +125,8 @@ export function TopBar() {
             e.target.value = '';
             if (!file) return;
             try {
-              const n = importSetups(parseImport(await file.text()));
+              const exported = parseImport(await file.text());
+              const n = importSetups(exported.setups, savedWith(exported.version));
               useUi.getState().showToast(`Imported ${n} setup${n === 1 ? '' : 's'}.`);
             } catch (err) {
               useUi.getState().showToast(`Import failed: ${(err as Error).message}`);

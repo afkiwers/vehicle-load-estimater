@@ -21,6 +21,8 @@ The first time you open it, a banner reminds you that the results are estimates 
 
 Your setups are saved in the browser automatically. The online page and a downloaded file keep separate lists, so use **Export** to keep a backup file or move setups to another computer or between the two, and **Import** to load one.
 
+**Settings and versions.** Your settings, exported files and share links remember the version of the app that saved them (from 1.4.0; anything older counts as 1.4.0). Every release stays online at `…/v/<version>/`. When a newer release is out, the site opens your settings in the version that saved them, with a banner offering the upgrade, every time you open it until you upgrade or choose not to for that visit. **Upgrade** runs in the latest version: it lists what changes in each release since, then brings every setup up to date one release at a time. Your settings from before are kept as a backup until the next upgrade, and **About** can put them back. Files and links made with an older version are upgraded when you import or open them; ones made with a newer version than the copy you are using are refused, and settings saved by a newer version are shown but never overwritten. A downloaded file can't open other versions, so it offers the upgrade in place.
+
 ## What it does
 
 **Weighbridge readings (Vehicle tab).** Enter whatever you measured: the four wheels, the two axles and/or the total. Missing values are derived and shown in grey, and every redundant reading is cross-checked:
@@ -99,7 +101,9 @@ npm run build    # typecheck, then build vehicle-load-estimator.html
 
 The build inlines everything (React, three.js, styles) into one HTML file so it runs from `file://`. It is written to `dist/index.html` and copied to `vehicle-load-estimator.html` at the repo root. CI checks that the committed file matches the source, so run `npm run build` and commit the result after changing the code.
 
-To release, publish a release on GitHub (Releases, "Draft a new release", pick or create a tag, Publish). The Release workflow builds the file from the tagged commit, runs the tests, attaches `vehicle-load-estimator.html` to the release and publishes it to GitHub Pages; the download link and the online page above always serve the newest release. Each release also carries the file under its old name, `ute-load-estimator.html`, so download links from before the rename keep working. The online page is the `gh-pages` branch, which the workflow replaces on every release. One-time setup, after the first release that runs it: Settings, Pages, Source "Deploy from a branch", branch `gh-pages`, folder `/ (root)`.
+Settings are stamped with `package.json`'s version, so bump it before releasing; the Release workflow refuses a tag that doesn't match. A release that changes what is saved adds a step to `UPGRADES` in `src/model/versions.ts`, with notes for the person upgrading; the step only has to read the previous release's settings. Releases that change nothing saved need no step.
+
+To release, publish a release on GitHub (Releases, "Draft a new release", pick or create a tag, Publish). The Release workflow builds the file from the tagged commit, runs the tests, attaches `vehicle-load-estimator.html` to the release and publishes it to GitHub Pages; the download link and the online page above always serve the newest release. Each release also carries the file under its old name, `ute-load-estimator.html`, so download links from before the rename keep working. The online page is the `gh-pages` branch: the workflow adds each release under `v/<version>/`, makes the newest the root page and writes `versions.json` listing them all. One-time setup, after the first release that runs it: Settings, Pages, Source "Deploy from a branch", branch `gh-pages`, folder `/ (root)`.
 
 Code map:
 

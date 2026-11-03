@@ -1,8 +1,9 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { createJSONStorage, persist } from 'zustand/middleware';
 import type { Setup } from '../model/types';
 import { newSetup, uid, type ItemTemplate } from '../model/presets';
 import { normalizeSetup } from '../model/migrate';
+import { DATA_VERSION, relation, savedWith, upgradeSetup } from '../model/versions';
 import { isTrailerWeight } from '../model/trailers';
 
 export const STORAGE_KEY = 'ute-load-estimator';
@@ -24,7 +25,46 @@ export interface UpdateOptions {
   history?: boolean | string;
 }
 
+/** The settings as they were before the last upgrade, kept until the next one. */
+export interface SettingsBackup {
+  version: string;
+  /** When the upgrade ran (ms since 1970). */
+  at: number;
+  setups: Record<string, Setup>;
+  order: string[];
+  activeId: string;
+}
+
+/**
+ * Settings saved by a newer version than this copy must not be overwritten by it: while set,
+ * nothing is written to the browser's storage.
+ */
+export const storageLock = { readOnly: false };
+
+const guardedStorage = createJSONStorage(() => ({
+  getItem: (key: string) => localStorage.getItem(key),
+  setItem: (key: string, value: string) => {
+    if (!storageLock.readOnly) localStorage.setItem(key, value);
+  },
+  removeItem: (key: string) => {
+    if (!storageLock.readOnly) localStorage.removeItem(key);
+  },
+}));
+
+/** The version the saved workspace was stored with, or null when nothing is saved yet. Read before the app starts. */
+export function storedVersion(): string | null {
+  try {
+    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null') as { state?: { setups?: unknown; dataVersion?: unknown } } | null;
+    return raw?.state?.setups ? savedWith(raw.state.dataVersion) : null;
+  } catch {
+    return null;
+  }
+}
+
 interface AppState {
+  /** The version of the app these settings were saved with. */
+  dataVersion: string;
+  backup: SettingsBackup | null;
   setups: Record<string, Setup>;
   order: string[];
   activeId: string;
@@ -42,7 +82,12 @@ interface AppState {
   duplicateSetup: () => void;
   renameSetup: (name: string) => void;
   deleteSetup: () => void;
-  importSetups: (setups: Setup[]) => number;
+  /** Adds setups saved with `version` (this one if not given), upgrading older ones; refuses newer ones. */
+  importSetups: (setups: Setup[], version?: string) => number;
+  /** Brings every setup up to this version, keeping the old settings as the backup. */
+  upgradeSettings: () => void;
+  /** Puts back the settings from before the last upgrade, with the version they were saved with. */
+  restoreBackup: () => void;
 
   addCustomTemplate: (t: ItemTemplate) => void;
   removeCustomTemplate: (id: string) => void;
@@ -70,6 +115,8 @@ export const useStore = create<AppState>()(
   persist(
     (set, get) => ({
       ...firstSetup(),
+      dataVersion: DATA_VERSION,
+      backup: null,
       customTemplates: [],
       history: emptyHistory(),
 
@@ -167,9 +214,11 @@ export const useStore = create<AppState>()(
         set({ setups: rest, order: newOrder, activeId: newOrder[0], history: emptyHistory() });
       },
 
-      importSetups: (list) => {
+      importSetups: (list, version = DATA_VERSION) => {
+        const from = savedWith(version);
+        if (relation(from) === 'newer') throw new Error(`These setups were saved with version ${from}, newer than this copy (${DATA_VERSION}). Open them in the latest version.`);
         const added = list.map((raw) => {
-          const s = normalizeSetup(raw);
+          const s = upgradeSetup(raw, from);
           if (get().setups[s.id]) s.id = uid();
           return s;
         });
@@ -182,13 +231,40 @@ export const useStore = create<AppState>()(
         return added.length;
       },
 
+      upgradeSettings: () => {
+        const { dataVersion, setups, order, activeId } = get();
+        if (relation(dataVersion) !== 'older') return;
+        const upgraded: Record<string, Setup> = {};
+        for (const id of order) if (setups[id]) upgraded[id] = upgradeSetup(setups[id], dataVersion);
+        set({
+          backup: { version: dataVersion, at: Date.now(), setups, order, activeId },
+          setups: upgraded,
+          dataVersion: DATA_VERSION,
+          history: emptyHistory(),
+        });
+      },
+
+      restoreBackup: () => {
+        const { backup } = get();
+        if (!backup) return;
+        set({ setups: backup.setups, order: backup.order, activeId: backup.activeId, dataVersion: backup.version, history: emptyHistory() });
+      },
+
       addCustomTemplate: (t) => set((st) => ({ customTemplates: [...st.customTemplates, t] })),
       removeCustomTemplate: (id) => set((st) => ({ customTemplates: st.customTemplates.filter((t) => t.id !== id) })),
     }),
     {
       name: STORAGE_KEY,
       version: 1,
-      partialize: (st) => ({ setups: st.setups, order: st.order, activeId: st.activeId, customTemplates: st.customTemplates }),
+      storage: guardedStorage,
+      partialize: (st) => ({
+        dataVersion: st.dataVersion,
+        backup: st.backup,
+        setups: st.setups,
+        order: st.order,
+        activeId: st.activeId,
+        customTemplates: st.customTemplates,
+      }),
       merge: (persisted, current) => {
         const p = persisted as Partial<AppState> | undefined;
         if (!p?.setups || !p.order?.length) return current;
@@ -202,6 +278,9 @@ export const useStore = create<AppState>()(
           order,
           activeId: p.activeId && setups[p.activeId] ? p.activeId : order[0],
           customTemplates: p.customTemplates ?? [],
+          // Saved before settings carried a version: the first release that stamped them.
+          dataVersion: savedWith(p.dataVersion),
+          backup: p.backup ?? null,
         };
       },
     },
