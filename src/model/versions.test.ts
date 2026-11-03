@@ -50,6 +50,16 @@ describe('opening the right version', () => {
     expect(decideVersion({ settings: '1.6.0', build: '1.6.0', manifest, atRoot: true, ...at })).toEqual({ kind: 'current' });
   });
 
+  it('reloads a stale cached root page under a fresh address, once', () => {
+    const stale = { settings: '1.6.0', build: '1.5.0', manifest, atRoot: true, hash: '#s=zA' };
+    expect(decideVersion({ ...stale, search: '' })).toEqual({ kind: 'redirect', url: `${APP_URL}?fresh=1.6.0#s=zA` });
+    expect(decideVersion({ ...stale, settings: null, search: '?upgrade' })).toEqual({ kind: 'redirect', url: `${APP_URL}?upgrade&fresh=1.6.0#s=zA` });
+    // Still stale after the reload (the CDN hasn't caught up): carry on rather than loop.
+    expect(decideVersion({ ...stale, search: '?fresh=1.6.0' }).kind).not.toBe('redirect');
+    // Older copies under v/ are meant to be older.
+    expect(decideVersion({ ...stale, atRoot: false, search: '' }).kind).not.toBe('redirect');
+  });
+
   it('sends older settings to the version that saved them, keeping a share link', () => {
     expect(decideVersion({ settings: '1.4.0', build: '1.6.0', manifest, atRoot: true, search: '', hash: '#s=zA&v=1.6.0' })).toEqual({
       kind: 'redirect',
