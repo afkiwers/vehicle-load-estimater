@@ -33,12 +33,15 @@ export type VehicleGroup =
   | 'MG U9'
   | 'Mitsubishi Triton'
   | 'Nissan Navara'
+  | 'RAM 1500'
+  | 'RAM 2500 and 3500'
+  | 'Chevrolet Silverado'
   | 'Toyota HiLux'
   | 'Toyota Tundra'
   | 'Toyota HiAce'
   | 'Other makes';
 
-export type VehicleMake = 'BYD' | 'Ford' | 'GWM' | 'Isuzu' | 'JAC' | 'Kia' | 'LDV' | 'Mazda' | 'MG' | 'Mitsubishi' | 'Nissan' | 'Toyota' | 'Other';
+export type VehicleMake = 'BYD' | 'Chevrolet' | 'Ford' | 'GWM' | 'Isuzu' | 'JAC' | 'Kia' | 'LDV' | 'Mazda' | 'MG' | 'Mitsubishi' | 'Nissan' | 'RAM' | 'Toyota' | 'Other';
 
 export interface VehicleModel {
   id: string;
@@ -68,6 +71,8 @@ const UNPUBLISHED = {
   MG: ['ute.tub.length', 'ute.tub.width', 'ute.tub.depth', 'ute.tub.floorHeight', 'ute.kerbFrontPct'],
   Mitsubishi: ['ute.tub.length', 'ute.tub.width', 'ute.tub.depth', 'ute.tub.floorHeight', 'ute.kerbFrontPct'],
   Nissan: ['ute.tub.length', 'ute.tub.width', 'ute.tub.depth', 'ute.tub.floorHeight', 'ute.kerbFrontPct'],
+  RAM: ['ute.tub.length', 'ute.tub.width', 'ute.tub.depth', 'ute.tub.floorHeight', 'ute.kerbFrontPct'],
+  Chevrolet: ['ute.tub.length', 'ute.tub.width', 'ute.tub.depth', 'ute.tub.floorHeight', 'ute.kerbFrontPct'],
   Generic: [],
 };
 const TUB = ['ute.tub.length', 'ute.tub.width', 'ute.tub.depth'];
@@ -78,9 +83,9 @@ const LIMITS = ['gvm', 'gcm', 'frontAxle', 'rearAxle', 'kerb', 'tare', 'payload'
 const EVERYTHING = ['ute.wheelbase', 'ute.trackFront', 'ute.trackRear', ...OVERALL, 'ute.frontOverhang', ...TUB, 'ute.tub.floorHeight', 'ute.kerbFrontPct', 'ute.tyre.size', 'ute.tyre.loadIndex', ...LIMITS];
 
 const makeOf = (group: VehicleGroup): keyof typeof UNPUBLISHED =>
-  (['BYD', 'Ford', 'GWM', 'Isuzu', 'JAC', 'Kia', 'LDV', 'Mazda', 'MG', 'Mitsubishi', 'Nissan', 'Toyota'] as const).find((make) => group.split(' ').includes(make)) ?? 'Generic';
+  (['BYD', 'Chevrolet', 'Ford', 'GWM', 'Isuzu', 'JAC', 'Kia', 'LDV', 'Mazda', 'MG', 'Mitsubishi', 'Nissan', 'RAM', 'Toyota'] as const).find((make) => group.split(' ').includes(make)) ?? 'Generic';
 
-const MAKE: Record<keyof typeof UNPUBLISHED, VehicleMake> = { BYD: 'BYD', Ford: 'Ford', GWM: 'GWM', Isuzu: 'Isuzu', JAC: 'JAC', Kia: 'Kia', LDV: 'LDV', Mazda: 'Mazda', MG: 'MG', Mitsubishi: 'Mitsubishi', Nissan: 'Nissan', Toyota: 'Toyota', Generic: 'Other' };
+const MAKE: Record<keyof typeof UNPUBLISHED, VehicleMake> = { BYD: 'BYD', Ford: 'Ford', GWM: 'GWM', Isuzu: 'Isuzu', JAC: 'JAC', Kia: 'Kia', LDV: 'LDV', Mazda: 'Mazda', MG: 'MG', Mitsubishi: 'Mitsubishi', Nissan: 'Nissan', RAM: 'RAM', Chevrolet: 'Chevrolet', Toyota: 'Toyota', Generic: 'Other' };
 
 type Body = Pick<
   UteSpec,
@@ -795,7 +800,7 @@ const BYD: Def[] = [
 // page's axle ratings add up to less than its GVM.
 type Dims = { wb: number; L: number; W: number; H: number; track: [number, number]; fo: number };
 
-const listed = (id: string, group: VehicleGroup, name: string, z: Dims, r: Ratings, tyre: Def['tyre'], typical: string[]): Def => ({
+const listed = (id: string, group: VehicleGroup, name: string, z: Dims, r: Ratings, tyre: Def['tyre'], typical: string[], tub: Body['tub'] = { length: 1520, width: 1520, depth: 500, floorHeight: 850 }): Def => ({
   id,
   group,
   name,
@@ -808,7 +813,7 @@ const listed = (id: string, group: VehicleGroup, name: string, z: Dims, r: Ratin
     overallWidth: z.W,
     overallHeight: z.H,
     frontOverhang: z.fo,
-    tub: { length: 1520, width: 1520, depth: 500, floorHeight: 850 },
+    tub,
     kerbFrontPct: 56,
   },
   limits: ratings(r),
@@ -862,6 +867,27 @@ const MORE: Def[] = [
   listed('navara-st-x-4x4', 'Nissan Navara', 'Nissan Navara ST-X 2.4L diesel 4x4', { wb: 3130, L: 5320, W: 1865, H: 1795, track: [1570, 1565], fo: 890 }, [3190, 6250, 1580, 2040, 2171, 2116, 3500, 750, 350], { size: '265/60R18', loadIndex: 112 }, ['ute.limits.towBallMax']),
 ];
 
+// RAM and Chevrolet: the full-size pick-ups remanufactured in right-hand drive (RAM by Ateco, Chevrolet by
+// GMSV), from CarExpert's specification pages for the current model year: kerb and tare weight, GVM,
+// GCM, axle ratings, towing, dimensions, track and tyres as published. No page gives the front
+// overhang, nor the RAM 2500/3500's width, so those are typical, as are the tow ball download (a tenth
+// of the braked towing), the tub and the kerb weight split. The heavy-duty trucks' published GCM is more
+// than GVM plus towing, so it never limits. GMC's Sierra is not in the list: GM's Australian arm sells
+// only the Yukon SUV from GMC, and there are no specification pages for the independently imported Sierra.
+const BOX_1500: Body['tub'] = { length: 1710, width: 1600, depth: 540, floorHeight: 950 };
+const BOX_HD: Body['tub'] = { length: 1940, width: 1600, depth: 560, floorHeight: 1000 };
+const US_TRUCKS: Def[] = [
+  listed('ram1500-express-black', 'RAM 1500', 'RAM 1500 Express Black Edition 3.0L petrol', { wb: 3672, L: 5916, W: 2017, H: 1971, track: [1741, 1729], fo: 1000 }, [3505, 7713, 1770, 1860, 2491, 2425, 4500, 750, 450], { size: '275/55R20', loadIndex: 115 }, ['ute.limits.towBallMax', 'ute.frontOverhang'], BOX_1500),
+  listed('ram1500-laramie-sport', 'RAM 1500', 'RAM 1500 Laramie Sport 3.0L petrol', { wb: 3672, L: 5916, W: 2017, H: 1971, track: [1741, 1729], fo: 1000 }, [3505, 7713, 1770, 1860, 2642, 2576, 4500, 750, 450], { size: '275/55R20', loadIndex: 115 }, ['ute.limits.towBallMax', 'ute.frontOverhang'], BOX_1500),
+  listed('ram1500-rebel', 'RAM 1500', 'RAM 1500 Rebel 3.0L petrol', { wb: 3672, L: 5916, W: 2017, H: 1971, track: [1741, 1729], fo: 1000 }, [3505, 7713, 1770, 1860, 2642, 2576, 4500, 750, 450], { size: '275/65R18', loadIndex: 116 }, ['ute.limits.towBallMax', 'ute.frontOverhang', 'ute.tyre.loadIndex'], BOX_1500),
+  listed('ram1500-limited', 'RAM 1500', 'RAM 1500 Limited 3.0L petrol', { wb: 3672, L: 5916, W: 2017, H: 1972, track: [1741, 1729], fo: 1000 }, [3505, 7713, 1770, 1860, 2722, 2636, 4200, 750, 420], { size: '285/45R22', loadIndex: 114 }, ['ute.limits.towBallMax', 'ute.frontOverhang'], BOX_1500),
+  listed('ram2500-laramie', 'RAM 2500 and 3500', 'RAM 2500 Laramie 6.7L diesel', { wb: 3785, L: 6066, W: 2085, H: 2037, track: [1719, 1704], fo: 1050 }, [4495, 12695, 2608, 2721, 3710, 3619, 4500, 750, 450], { size: '275/70R18', loadIndex: 118 }, ['ute.limits.towBallMax', 'ute.frontOverhang', 'ute.overallWidth'], BOX_HD),
+  listed('ram3500-laramie', 'RAM 2500 and 3500', 'RAM 3500 Laramie 6.7L diesel', { wb: 3785, L: 6066, W: 2085, H: 2037, track: [1719, 1704], fo: 1050 }, [5352, 12837, 2721, 3175, 3700, 3609, 4500, 750, 450], { size: '275/70R18', loadIndex: 118 }, ['ute.limits.towBallMax', 'ute.frontOverhang', 'ute.overallWidth'], BOX_HD),
+  listed('silverado-ltz-premium', 'Chevrolet Silverado', 'Chevrolet Silverado 1500 LTZ Premium 6.2L V8', { wb: 3745, L: 5931, W: 2086, H: 1930, track: [1743, 1728], fo: 1000 }, [3300, 7160, 1724, 1724, 2552, 2494, 4500, 750, 450], { size: '275/60R20', loadIndex: 115 }, ['ute.limits.towBallMax', 'ute.frontOverhang'], BOX_1500),
+  listed('silverado-zr2', 'Chevrolet Silverado', 'Chevrolet Silverado 1500 ZR2 6.2L V8', { wb: 3748, L: 5931, W: 2074, H: 1991, track: [1743, 1728], fo: 1000 }, [3300, 6851, 1724, 1724, 2587, 2526, 4200, 750, 420], { size: '275/70R18', loadIndex: 116 }, ['ute.limits.towBallMax', 'ute.frontOverhang', 'ute.tyre.loadIndex'], BOX_1500),
+  listed('silverado-hd-ltz-premium', 'Chevrolet Silverado', 'Chevrolet Silverado 2500HD LTZ Premium 6.6L diesel', { wb: 4036, L: 6387, W: 2263, H: 2039, track: [1731, 1738], fo: 1050 }, [4495, 12474, 2540, 2994, 3762, 3661, 4500, 750, 450], { size: '275/65R20', loadIndex: 126 }, ['ute.limits.towBallMax', 'ute.frontOverhang'], { ...BOX_HD, length: 2060 }),
+];
+
 // For any other make: round figures typical of a mid-size 4x4 diesel dual cab ute (Hilux, Ranger,
 // BT-50, Triton class) and of a large five-seat SUV that tows, all placeholders for the placard's.
 const GENERIC: Def[] = [
@@ -907,11 +933,11 @@ const GENERIC: Def[] = [
   },
 ];
 
-export const VEHICLES: VehicleModel[] = [...BYD, ...FORD, ...DEFS, ...ISUZU, ...MORE, ...TOYOTA, ...GENERIC].map((d) => ({
+export const VEHICLES: VehicleModel[] = [...BYD, ...US_TRUCKS, ...FORD, ...DEFS, ...ISUZU, ...MORE, ...TOYOTA, ...GENERIC].map((d) => ({
   id: d.id,
   make: MAKE[makeOf(d.group)],
   group: d.group,
-  label: d.name.replace(/^(BYD|Ford|GWM|Isuzu|JAC|Kia|LDV|Mazda|MG|Mitsubishi|Nissan|Toyota) /, '') + (d.years ? ` (${d.years})` : ''),
+  label: d.name.replace(/^(BYD|Chevrolet|Ford|GWM|Isuzu|JAC|Kia|LDV|Mazda|MG|Mitsubishi|Nissan|RAM|Toyota) /, '') + (d.years ? ` (${d.years})` : ''),
   spec: () => ({
     model: d.id,
     name: d.name,
@@ -926,6 +952,7 @@ export const VEHICLES: VehicleModel[] = [...BYD, ...FORD, ...DEFS, ...ISUZU, ...
 /** Makes in picker order, as shown. */
 export const VEHICLE_MAKES: { make: VehicleMake; label: string }[] = [
   { make: 'BYD', label: 'BYD' },
+  { make: 'Chevrolet', label: 'Chevrolet' },
   { make: 'Ford', label: 'Ford' },
   { make: 'GWM', label: 'GWM' },
   { make: 'Isuzu', label: 'Isuzu' },
@@ -936,11 +963,12 @@ export const VEHICLE_MAKES: { make: VehicleMake; label: string }[] = [
   { make: 'MG', label: 'MG' },
   { make: 'Mitsubishi', label: 'Mitsubishi' },
   { make: 'Nissan', label: 'Nissan' },
+  { make: 'RAM', label: 'RAM' },
   { make: 'Toyota', label: 'Toyota' },
   { make: 'Other', label: 'Other make (generic)' },
 ];
 
-export const VEHICLE_GROUPS: VehicleGroup[] = ['BYD Shark 6', 'BYD SUVs', 'Ford Ranger', 'Ford F-150', 'GWM Cannon Alpha', 'GWM Cannon', 'Earlier GWM models', 'Isuzu D-MAX', 'Isuzu MU-X', 'JAC T9', 'Kia Tasman', 'LDV T60 Max', 'LDV Terron 9', 'Mazda BT-50', 'MG U9', 'Mitsubishi Triton', 'Nissan Navara', 'Toyota HiLux', 'Toyota Tundra', 'Toyota HiAce', 'Other makes'];
+export const VEHICLE_GROUPS: VehicleGroup[] = ['BYD Shark 6', 'BYD SUVs', 'Ford Ranger', 'Ford F-150', 'GWM Cannon Alpha', 'GWM Cannon', 'Earlier GWM models', 'Isuzu D-MAX', 'Isuzu MU-X', 'JAC T9', 'Kia Tasman', 'LDV T60 Max', 'LDV Terron 9', 'Mazda BT-50', 'MG U9', 'Mitsubishi Triton', 'Nissan Navara', 'RAM 1500', 'RAM 2500 and 3500', 'Chevrolet Silverado', 'Toyota HiLux', 'Toyota Tundra', 'Toyota HiAce', 'Other makes'];
 
 export function vehicleModel(id: string): VehicleModel {
   return VEHICLES.find((v) => v.id === id) ?? VEHICLES.find((v) => v.id === DEFAULT_VEHICLE)!;

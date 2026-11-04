@@ -191,4 +191,14 @@ describe('vehicle models', () => {
     // MG's make isn't mistaken inside other names.
     expect(vehicleModel('alpha-vanta-30d').make).toBe('GWM');
   });
+
+  it('has the RAM and Chevrolet full-size pick-ups', () => {
+    expect(vehicleModel('ram1500-laramie-sport')).toMatchObject({ make: 'RAM', group: 'RAM 1500' });
+    expect(vehicleModel('ram1500-laramie-sport').spec()).toMatchObject({ wheelbase: 3672, limits: { gvm: 3505, gcm: 7713, frontAxle: 1770, rearAxle: 1860, kerb: 2642, payload: 863, brakedTow: 4500 } });
+    expect(vehicleModel('ram3500-laramie').spec().limits).toMatchObject({ gvm: 5352, rearAxle: 3175, kerb: 3700 });
+    expect(vehicleModel('silverado-hd-ltz-premium')).toMatchObject({ make: 'Chevrolet', group: 'Chevrolet Silverado' });
+    expect(vehicleModel('silverado-zr2').spec().limits).toMatchObject({ gvm: 3300, brakedTow: 4200 });
+    expect(vehicleModel('ram2500-laramie').placeholders).toEqual(expect.arrayContaining(['ute.frontOverhang', 'ute.overallWidth', 'ute.limits.towBallMax']));
+    expect(vehicleModel('ram2500-laramie').placeholders).not.toContain('ute.limits.rearAxle');
+  });
 });
