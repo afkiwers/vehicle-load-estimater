@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { HelpDialog } from './HelpDialog';
 
 const KEY = 'ute-load-estimator:disclaimer';
 
@@ -13,6 +14,7 @@ function acknowledged(): boolean {
 /** Shown until the viewer acknowledges once that the results are estimates to confirm on real scales. */
 export function Disclaimer() {
   const [open, setOpen] = useState(() => !acknowledged());
+  const [help, setHelp] = useState(false);
   if (!open) return null;
   return (
     <div className="disclaimer" role="alertdialog" aria-labelledby="disclaimer-title" aria-describedby="disclaimer-text">
@@ -24,20 +26,26 @@ export function Disclaimer() {
           placards.
         </span>
       </div>
-      <button
-        className="btn primary"
-        autoFocus
-        onClick={() => {
-          try {
-            localStorage.setItem(KEY, 'acknowledged');
-          } catch {
-            // Storage blocked: it shows again next time.
-          }
-          setOpen(false);
-        }}
-      >
-        I understand
-      </button>
+      <div className="disclaimer-actions">
+        <button className="btn" onClick={() => setHelp(true)}>
+          Assumptions and limitations
+        </button>
+        <button
+          className="btn primary"
+          autoFocus
+          onClick={() => {
+            try {
+              localStorage.setItem(KEY, 'acknowledged');
+            } catch {
+              // Storage blocked: it shows again next time.
+            }
+            setOpen(false);
+          }}
+        >
+          I understand
+        </button>
+      </div>
+      {help && <HelpDialog onClose={() => setHelp(false)} />}
     </div>
   );
 }

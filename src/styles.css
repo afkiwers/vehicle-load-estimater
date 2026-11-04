@@ -1677,7 +1677,13 @@ table.loads tr.total td {
   max-width: 900px;
 }
 
-.disclaimer .btn {
+.disclaimer-actions {
+  display: flex;
+  flex: none;
+  gap: 8px;
+}
+
+.disclaimer-actions .btn {
   flex: none;
 }
 
@@ -1686,6 +1692,9 @@ table.loads tr.total td {
     flex-direction: column;
     align-items: stretch;
     gap: 10px;
+  }
+  .disclaimer-actions .btn {
+    flex: 1;
   }
 }
 
