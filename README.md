@@ -77,6 +77,8 @@ Pick your vehicle under **Make and model** at the top of the Vehicle tab. The de
 - **MG U9:** Explore, Explore X, Explore Pro, Explore Black Edition
 - **Mitsubishi Triton:** GLX 4x2 and 4x4, GLS, GLX-R, GSR, Raider
 - **Nissan Navara:** ST, ST-X, SL, PRO-4X
+- **RAM:** 1500 Express Black Edition, Laramie Sport, Rebel and Limited; 2500 and 3500 Laramie
+- **Chevrolet Silverado:** 1500 LTZ Premium and ZR2, 2500HD LTZ Premium
 - **Other makes:** a generic dual cab ute and a generic car (five-seat SUV)
 
 If your vehicle is not in the list, pick the generic ute or car. They start with round figures typical of a mid-size 4x4 diesel dual cab ute (GVM 3,200 kg, braked towing 3,500 kg) and of a large five-seat SUV that tows (GVM 2,750 kg, braked towing 3,000 kg). Every one of them is a placeholder: replace them with the values on your placard, in the owner's manual and on the tow bar plate. Give the vehicle its name under **Your vehicle**; a share link shows it.
@@ -88,6 +90,8 @@ The Ford and BYD figures are from CarExpert's specification pages for the curren
 The HiLux and Tundra figures are from CarExpert's specification pages for the current model year: kerb and tare weight, GVM, GCM, payload, towing, dimensions, track, front overhang and tyres, and the axle ratings where given (the HiLux 4x2s and the Tundra). The other axle ratings, the tow ball download, the electric HiLux's and Tundra's GCM, and the tub and kerb weight split are placeholders. The LandCruiser 70 is not in the list because it is sold as a cab-chassis.
 
 The JAC, Kia, LDV, Mazda, MG, Mitsubishi and Nissan utes are every current dual cab pick-up on CarExpert's specification pages: kerb weight, GVM, towing, dimensions, track and tyres as published, and the tare, GCM, axle ratings, front overhang and tyre load index wherever the page gives them. Where it doesn't (most often for the JAC T9, and the GCM of the LDV Terron 9 and MG U9) they are placeholders, as is the tow ball download for all of them. CarExpert's LDV "T60 Max Plus" is left out: LDV's current range is the Pro and Luxe, and that page's axle ratings add up to less than its GVM.
+
+The RAM and Chevrolet pick-ups are from CarExpert's specification pages too, with kerb and tare weight, GVM, GCM, axle ratings, towing, dimensions, track and tyres as published; the front overhang, the RAM 2500/3500's width, the tow ball download, the tub and the kerb weight split are placeholders. The heavy-duty trucks' published GCM is more than their GVM plus towing, so it never limits. GMC is not in the list: GM's Australian arm sells only the Yukon SUV from GMC, and the independently imported Sierra has no specification pages to take figures from.
 
 The 2009 HiAce LWB van has GVM 2,800 kg and 1,400 kg braked towing from Australian spec listings (GoAuto, CarsGuide, carsales), with the petrol's tare and kerb weight from carsales. Its axle ratings, tow ball download, track, front overhang, cargo area and kerb weight split are not in those listings and are marked placeholder, as are the diesel's kerb weight and GCM, which come from a review of a later year. Check them against the compliance plate on the driver's door pillar.
 
