@@ -1,3 +1,7 @@
+// The app shell: top bar, items palette, 3D viewport and the tabbed side panel, plus the banners and
+// dialogs that sit over them. It also owns the global keyboard shortcuts and opens setups shared as
+// links ("#s=…"). Start-up (choosing the version to open, before this renders) is in main.tsx.
+
 import { useEffect, useState } from 'react';
 import { overallStatus } from './model/calc';
 import type { Setup } from './model/types';
@@ -71,6 +75,10 @@ function Toast() {
   ) : null;
 }
 
+/**
+ * Undo (Ctrl/Cmd+Z), redo (Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y), duplicate (Ctrl/Cmd+D) and delete the
+ * selected item, Escape to deselect. Ignored while typing in a field, so they never fight text editing.
+ */
 function useShortcuts() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

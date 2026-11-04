@@ -1,3 +1,8 @@
+// UI state that is not saved with the setup: the open tab, selected and dragged item, drop preview,
+// view preset, labels and x-ray toggles, the slope, toasts and the palette drawer. Also the small
+// bridges between the DOM and the three.js scene (`sceneBridge` for picking and snapshots,
+// `labelLayer` for 3D labels).
+
 import { create } from 'zustand';
 import type { Host, ItemSize, ItemShape, Vec3 } from '../model/types';
 

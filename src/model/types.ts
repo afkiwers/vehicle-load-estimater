@@ -51,8 +51,6 @@ export interface LoadItem {
   templateId?: string;
 }
 
-export type Nullable<T> = { [K in keyof T]: T[K] | null };
-
 export interface UteLimits {
   gvm: number | null;
   gcm: number | null;

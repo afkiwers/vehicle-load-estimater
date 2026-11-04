@@ -1,3 +1,7 @@
+// Load tags and dimension lines drawn in the 3D view: each wheel, both axles, the tow ball and the
+// trailer's axles and mass, coloured by the matching check's status. The tags are DOM elements
+// (drei <Html>) rendered into `labelLayer` over the canvas.
+
 import type { ReactNode, RefObject } from 'react';
 import { Html } from '@react-three/drei';
 import type { Check, Result } from '../model/calc';

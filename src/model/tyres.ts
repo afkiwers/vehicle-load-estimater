@@ -11,9 +11,7 @@ const LOAD_INDEX: Record<number, number> = {
   130: 1900,
 };
 
-export const LOAD_INDEX_MIN = 70;
-export const LOAD_INDEX_MAX = 130;
-
+/** Rated load per tyre for a load index (rounded to a whole index); null if not set or outside the 70–130 table. */
 export function loadIndexKg(li: number | null | undefined): number | null {
   if (li == null) return null;
   return LOAD_INDEX[Math.round(li)] ?? null;

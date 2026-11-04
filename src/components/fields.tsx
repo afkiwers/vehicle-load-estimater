@@ -1,3 +1,7 @@
+// Form building blocks. Fields bind to a setup by a dotted path ("ute.limits.gvm"): they read the open
+// setup's value there and write with `setPath`, which also clears the placeholder mark for that path.
+// A placeholder chip shows on any field whose path is in `setup.placeholders`.
+
 import { useEffect, useState, type ReactNode } from 'react';
 import { getPath, useActive, useStore } from '../state/store';
 import { num } from '../model/format';

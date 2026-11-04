@@ -1,3 +1,7 @@
+// The middle column: the gauge strip of key checks, the 3D canvas with its view toolbar (presets,
+// labels, x-ray, slope), the item inspector, and the handlers that turn a palette drag into a new item
+// at the surface under the pointer (`sceneBridge.pick` then `placeFromHit`).
+
 import { useState, type DragEvent } from 'react';
 import type { Check } from '../model/calc';
 import { num, pct } from '../model/format';

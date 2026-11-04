@@ -122,12 +122,13 @@ Settings are stamped with `package.json`'s version, so bump it before releasing;
 
 To release, publish a release on GitHub (Releases, "Draft a new release", pick or create a tag, Publish). The Release workflow builds the file from the tagged commit, runs the tests, attaches `vehicle-load-estimator.html` to the release and publishes it to GitHub Pages; the download link and the online page above always serve the newest release. Each release also carries the file under its old name, `ute-load-estimator.html`, so download links from before the rename keep working. The online page is the `gh-pages` branch: the workflow adds each release under `v/<version>/`, makes the newest the root page and writes `versions.json` listing them all. One-time setup, after the first release that runs it: Settings, Pages, Source "Deploy from a branch", branch `gh-pages`, folder `/ (root)`.
 
-Code map:
+Code map (see [ARCHITECTURE.md](ARCHITECTURE.md) for how the parts fit together, the coordinate frames, the load pipeline, settings versions and how to add a vehicle, trailer type, item or check):
 
-- `src/model/` load model (`calc.ts`), geometry, tyre tables, presets, trailer types (`trailers.ts`); no UI code. For compatibility with saved setups the code still calls the vehicle `ute` whatever its body (`ute.bodyStyle`), and the towed vehicle `caravan` whatever its type (`caravan.kind`).
-- `src/state/` setups store (saved in the browser), UI state
-- `src/three/` 3D scene, vehicle models (dual cab, SUV and van bodies), drag and drop
-- `src/components/` panels, inspector, report
+- `src/model/` the domain, no UI code: load model (`calc.ts`), geometry, vehicle models (`vehicles.ts`), trailer types (`trailers.ts`), presets and item templates, tyre tables, settings versions and upgrade steps (`versions.ts`). For compatibility with saved setups the code still calls the vehicle `ute` whatever its body (`ute.bodyStyle`), and the towed vehicle `caravan` whatever its type (`caravan.kind`).
+- `src/state/` setups store (saved in the browser), UI state, cached results, which version to open (`versioning.ts`)
+- `src/three/` 3D scene, vehicle models (dual cab, SUV and van bodies), trailers, items, drag and drop
+- `src/components/` panels, inspector, banners, dialogs, report
+- `scripts/` release helpers (`versions-manifest.mjs` writes the site's `versions.json`)
 
 ## License
 

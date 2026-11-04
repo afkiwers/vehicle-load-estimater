@@ -58,6 +58,11 @@ function bodyLabels(kind: TrailerKind) {
   };
 }
 
+/**
+ * The Towing tab: trailer type, tow bar and WDH, the trailer's weighbridge readings, compliance plate,
+ * tyres and axle layout. Switching trailer type replaces the trailer's figures and items
+ * (`applyTrailerKind`); moving the axles after weighing offers to take the readings as taken there.
+ */
 export function TowingPanel() {
   const setup = useSetup();
   const result = useResult();
@@ -125,7 +130,7 @@ export function TowingPanel() {
             min={0}
             hint={`Measure along the ground. Front axle → ball: ${mm(setup.ute.wheelbase + setup.hitch.ballOffset)}.`}
           />
-          <NumField path="hitch.ballHeight" label="Ball height" unit="mm" nullable={false} min={100} hint="For the 3D view; static loads don't depend on it." />
+          <NumField path="hitch.ballHeight" label="Ball height" unit="mm" nullable={false} min={100} hint="For the 3D view and the slope view; loads on level ground don't depend on it." />
           <NumField path="hitch.towbarRating" label="Tow bar rating" hint="From the tow bar plate, if lower." />
           <NumField path="hitch.towbarBallRating" label="Tow bar ball rating" />
         </div>

@@ -1,3 +1,8 @@
+// The detailed ute and SUV model. The painted body comes from uteBody.ts (lofted sections); this file
+// adds everything attached to it (front end, lights, mirrors, door lines, interior, tub or SUV rear,
+// underbody, tow bar, wheels) placed with the body's surface functions so parts sit on it. Meshes
+// that items can be dropped on carry a `surface` name (body, front, roof, tub, seat, bumper, towbar).
+
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import type { HitchSpec, UteSpec } from '../model/types';
@@ -89,6 +94,10 @@ function Interior({ g, m }: { g: G; m: Materials }) {
   );
 }
 
+/**
+ * Grille, headlights, bumper with intake, fog light pockets and number plate on the rounded nose. Each piece is placed and
+ * turned with `FrontPiece` so it follows the nose's curve; in x-ray mode they stop being drop targets.
+ */
 function FrontEnd({ g, m, shape, xray }: { g: G; m: Materials; shape: UteShape; xray: boolean }) {
   const W = g.bodyW;
   const sF = g.sFront;

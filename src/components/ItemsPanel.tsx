@@ -1,3 +1,7 @@
+// The Items tab: every item in the setup with its mass and effect on each axle, include/exclude
+// toggles, and "Mark ticked items as weighed", which records where each included item is now as its
+// weighed placement (so readings taken with it on aren't counted twice) and clears it for the others.
+
 import type { LoadItem } from '../model/types';
 import type { ItemEffect } from '../model/calc';
 import { num, signedKg } from '../model/format';

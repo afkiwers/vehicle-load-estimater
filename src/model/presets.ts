@@ -1,3 +1,8 @@
+// Defaults and templates: a new setup, the default hitch and check settings, switching vehicle model
+// (`applyVehicle`) or trailer type (`applyTrailerKind`), and the item templates in the palette with
+// `itemFromTemplate`, which places a new item at its template's anchor (see `anchorPlacement`) and
+// stacks it on anything already there.
+
 import type {
   CaravanReadings,
   CheckSettings,
@@ -173,7 +178,10 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
 
 const STACKING: Anchor[] = ['roof', 'tub', 'tubFront', 'tubRear', 'cvDrawbar', 'cvFloorFront', 'cvFloorCentre', 'cvFloorRear', 'cvRoof'];
 
-/** Raises a new item resting at `pos` onto whatever already occupies that footprint. */
+/**
+ * Raises a new item resting at `pos` onto whatever already occupies that footprint. Repeated until
+ * nothing more is in the way, so it lands on top of a stack rather than inside its second layer.
+ */
 function stackOnTop(pos: Vec3, size: ItemSize, host: Host, items: LoadItem[]): Vec3 {
   let bottom = pos.z - size.h / 2;
   for (let pass = 0; pass < items.length; pass++) {
@@ -194,6 +202,11 @@ function stackOnTop(pos: Vec3, size: ItemSize, host: Host, items: LoadItem[]): V
   return { ...pos, z: bottom + size.h / 2 };
 }
 
+/**
+ * A new item from a palette template, added by click rather than dragged: placed at the template's
+ * anchor (people take the first free seat), shifted sideways by `offsetY`, and for floor, roof and
+ * tub anchors raised onto whatever already occupies that footprint.
+ */
 export function itemFromTemplate(tpl: ItemTemplate, setup: Setup): LoadItem {
   const occupied = setup.items.filter((i) => i.snap === 'seat' && i.host === 'ute').map((i) => i.pos);
   const placement = anchorPlacement(tpl.anchor, tpl.size, setup, occupied);

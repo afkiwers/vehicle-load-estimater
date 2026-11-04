@@ -11,6 +11,7 @@ import { useUi } from '../state/ui';
 import { NumInput } from './fields';
 import { effectText } from './ItemsPanel';
 
+/** Copies an item beside the original (it was not on the vehicle when weighed) and selects the copy. */
 export function duplicateItem(id: string) {
   const store = useStore.getState();
   const newId = uid();
@@ -26,6 +27,7 @@ export function duplicateItem(id: string) {
   useUi.getState().select(newId);
 }
 
+/** Removes an item from the open setup and clears the selection. */
 export function deleteItem(id: string) {
   useStore.getState().update((s) => void (s.items = s.items.filter((i) => i.id !== id)));
   useUi.getState().select(null);
@@ -40,6 +42,12 @@ function Labeled({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+/**
+ * The floating editor for the selected item: name, colour, mass, shape, size and exact position, its
+ * effect on each axle, and how much more would fit at that spot before the first rated limit
+ * (`capacityAt`, which runs `compute` once more with a 1 kg probe). Edits to one field share an undo
+ * step while typing (history key `item:<id>:<field>`).
+ */
 export function Inspector() {
   const id = useUi((s) => s.selectedId);
   const setup = useSetup();

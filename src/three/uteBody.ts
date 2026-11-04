@@ -1,5 +1,12 @@
 // The ute's (or SUV's) rounded body, described as cross-sections along its length
 // and lofted into smooth surfaces. Everything scales with the entered dimensions.
+//
+// The body is defined by functions of the station s (mm behind the front axle): the plan
+// half-width, the top and bottom heights and the corner radii there. `section(s)` combines
+// them into one cross-section, and `loft` joins sections at closely spaced stations into a
+// mesh. Parts attached to the body (lights, door lines, handles, mirrors) ask the same
+// functions where the surface is (`sideY`, `frontX`, `topZ`), so they sit on what is drawn.
+// The cab's glasshouse is lofted separately (`greenhouse`).
 
 import * as THREE from 'three';
 import type { UteGeometry } from '../model/geometry';
@@ -104,6 +111,26 @@ export interface UteShape {
   archR: number;
 }
 
+/**
+ * Builds the vehicle's lower body (everything below the glasshouse) and the functions describing
+ * its surface.
+ *
+ * Along the body, three profiles are blended with rounded corners (`curl`) and smooth ramps
+ * (`smooth`): the plan half-width (`planHalf`: rounded front and rear corners, swollen over the
+ * wheel arches like flares), the top line (`topZ`: bonnet nose, bonnet, cowl, beltline, then for a
+ * ute a step down to the tub rails; an SUV keeps the beltline to the tailgate) and the bottom line
+ * (`bottomZ`: bumpers curled up front and rear, and the wheel arches cut as circles of radius
+ * `archR` around each axle). `section(s)` turns them into a cross-section with a leaning side, a
+ * rounded shoulder and sill, and a crowned bonnet.
+ *
+ * Stations are 45 mm apart, closer (10–15 mm) where the shape changes quickly: the nose, the arches,
+ * the windscreen base, the tub's front and the rear (`fine`). A ute's lower body is three lofts (the
+ * closed front and cab, the open tub with its rails, walls and floor as separate shading zones, and
+ * the closed tailgate); an SUV's is one closed loft from nose to tailgate.
+ *
+ * The arch radius is capped so a ute's arch never cuts into its tub floor. The returned geometries
+ * are new each call; the caller disposes them.
+ */
 export function makeUteShape(g: UteGeometry): UteShape {
   const H0 = g.bodyW / 2;
   const zb = g.bumperBottom;

@@ -23,6 +23,18 @@ export interface LoftOptions {
   group?: (j: number, k: number, i: number) => number;
 }
 
+/**
+ * Joins cross-sections into one indexed mesh: point i of zone k at station j is connected to the
+ * same point at station j+1, two triangles per quad. Every station must therefore have the same
+ * zones with the same number of points each.
+ *
+ * Zones share no vertices with each other, so `computeVertexNormals` smooths within a zone and
+ * leaves a crease between zones (a body side and a tub wall, say). `opts.group` puts quads in
+ * material groups (paint, trim, glass) so one mesh can carry several materials. Caps are fans
+ * around the outline's centroid with vertices of their own, so they shade flat.
+ *
+ * Coordinates are the vehicle's host frame (mm), converted to world space here.
+ */
 export function loft(stations: Station[], opts: LoftOptions = {}): THREE.BufferGeometry {
   const pos: number[] = [];
   const byGroup: number[][] = [];
