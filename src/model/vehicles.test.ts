@@ -174,4 +174,21 @@ describe('vehicle models', () => {
     // The HiAce keeps its own placeholders.
     expect(vehicleModel('hiace-lwb-30d-2009').placeholders).toEqual(expect.arrayContaining(['ute.limits.frontAxle', 'ute.trackFront']));
   });
+
+  it('has the JAC, Kia, LDV, Mazda, MG, Mitsubishi and Nissan utes under their own makes', () => {
+    const makes = new Set(VEHICLES.map((v) => v.make));
+    for (const make of ['JAC', 'Kia', 'LDV', 'Mazda', 'MG', 'Mitsubishi', 'Nissan']) expect(makes).toContain(make);
+    expect(vehicleModel('tasman-x-pro-4x4')).toMatchObject({ make: 'Kia', group: 'Kia Tasman' });
+    expect(vehicleModel('tasman-x-pro-4x4').spec()).toMatchObject({ wheelbase: 3270, limits: { gvm: 3250, gcm: 6200, frontAxle: 1450, rearAxle: 2002, kerb: 2237, payload: 1013 } });
+    expect(vehicleModel('triton-gsr-4x4').spec().limits).toMatchObject({ gvm: 3200, gcm: 6250, kerb: 2170, brakedTow: 3500 });
+    expect(vehicleModel('bt50-xs-4x2').spec().limits).toMatchObject({ gvm: 3000, kerb: 1888 });
+    expect(vehicleModel('navara-pro-4x-4x4')).toMatchObject({ make: 'Nissan' });
+    expect(vehicleModel('u9-explore-pro-4x4')).toMatchObject({ make: 'MG', group: 'MG U9' });
+    // Figures the source leaves out are placeholders, per model.
+    expect(vehicleModel('jac-t9-haven-4x4').placeholders).toEqual(expect.arrayContaining(['ute.limits.frontAxle', 'ute.limits.tare', 'ute.frontOverhang']));
+    expect(vehicleModel('u9-explore-4x4').placeholders).toContain('ute.limits.gcm');
+    expect(vehicleModel('tasman-s-4x4').placeholders).not.toContain('ute.limits.frontAxle');
+    // MG's make isn't mistaken inside other names.
+    expect(vehicleModel('alpha-vanta-30d').make).toBe('GWM');
+  });
 });

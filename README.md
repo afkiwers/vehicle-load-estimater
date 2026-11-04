@@ -70,6 +70,13 @@ Pick your vehicle under **Make and model** at the top of the Vehicle tab. The de
 - **Toyota HiLux:** every dual cab pick-up: WorkMate and SR 2.8L diesel 4x2 and 4x4, SR5 2.8L diesel (automatic and manual), Rogue, Rugged X, and the electric SR and SR5
 - **Toyota Tundra:** Limited and Platinum
 - **Toyota HiAce:** 2009 LWB panel van, 2.7L petrol and 3.0L diesel, drawn as a cab-over van with three front seats and the cargo area behind a bulkhead
+- **JAC:** T9 Haven, Oasis, Osprey and Osprey X
+- **Kia Tasman:** S 4x2 and 4x4, SX, X-Line, X-Pro
+- **LDV:** T60 MAX Pro, Terron 9 Origin and Evolve
+- **Mazda BT-50:** XS, XT and XTR 4x2 and 4x4, SP, GT, Boss, Thunder
+- **MG U9:** Explore, Explore X, Explore Pro, Explore Black Edition
+- **Mitsubishi Triton:** GLX 4x2 and 4x4, GLS, GLX-R, GSR, Raider
+- **Nissan Navara:** ST, ST-X, SL, PRO-4X
 - **Other makes:** a generic dual cab ute and a generic car (five-seat SUV)
 
 If your vehicle is not in the list, pick the generic ute or car. They start with round figures typical of a mid-size 4x4 diesel dual cab ute (GVM 3,200 kg, braked towing 3,500 kg) and of a large five-seat SUV that tows (GVM 2,750 kg, braked towing 3,000 kg). Every one of them is a placeholder: replace them with the values on your placard, in the owner's manual and on the tow bar plate. Give the vehicle its name under **Your vehicle**; a share link shows it.
@@ -79,6 +86,8 @@ The current GWM range uses the figures in GWM Australia's brochures (Cannon Alph
 The Ford and BYD figures are from CarExpert's specification pages for the current model year: kerb and tare weight, GVM, GCM, payload, towing, dimensions, track and tyres for every variant, and axle ratings and front overhang for the Rangers, F-150s and Shark 6. The Shark 6's GCM and tow ball download come from BYD Australia's press material. Ford does not publish the tow ball download there, so it is a placeholder (350 kg for the Ranger, 250 kg for the Raptor, 450 kg for the Super Duty and F-150), as are the F-150's unbraked towing and tyre load index, and the BYD SUVs' GCM, axle ratings, tow ball download and front overhang. The tub or cargo floor and the kerb weight split are placeholders throughout. The electric Atto 3 and Sealion 7 carry no fuel, so their tare is their kerb weight. The Ranger Super Duty and Shark 6 cab-chassis are not in the list because their published kerb weight is without the tray.
 
 The HiLux and Tundra figures are from CarExpert's specification pages for the current model year: kerb and tare weight, GVM, GCM, payload, towing, dimensions, track, front overhang and tyres, and the axle ratings where given (the HiLux 4x2s and the Tundra). The other axle ratings, the tow ball download, the electric HiLux's and Tundra's GCM, and the tub and kerb weight split are placeholders. The LandCruiser 70 is not in the list because it is sold as a cab-chassis.
+
+The JAC, Kia, LDV, Mazda, MG, Mitsubishi and Nissan utes are every current dual cab pick-up on CarExpert's specification pages: kerb weight, GVM, towing, dimensions, track and tyres as published, and the tare, GCM, axle ratings, front overhang and tyre load index wherever the page gives them. Where it doesn't (most often for the JAC T9, and the GCM of the LDV Terron 9 and MG U9) they are placeholders, as is the tow ball download for all of them. CarExpert's LDV "T60 Max Plus" is left out: LDV's current range is the Pro and Luxe, and that page's axle ratings add up to less than its GVM.
 
 The 2009 HiAce LWB van has GVM 2,800 kg and 1,400 kg braked towing from Australian spec listings (GoAuto, CarsGuide, carsales), with the petrol's tare and kerb weight from carsales. Its axle ratings, tow ball download, track, front overhang, cargo area and kerb weight split are not in those listings and are marked placeholder, as are the diesel's kerb weight and GCM, which come from a review of a later year. Check them against the compliance plate on the driver's door pillar.
 

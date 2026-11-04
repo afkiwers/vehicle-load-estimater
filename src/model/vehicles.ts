@@ -25,12 +25,20 @@ export type VehicleGroup =
   | 'Earlier GWM models'
   | 'Isuzu D-MAX'
   | 'Isuzu MU-X'
+  | 'JAC T9'
+  | 'Kia Tasman'
+  | 'LDV T60 Max'
+  | 'LDV Terron 9'
+  | 'Mazda BT-50'
+  | 'MG U9'
+  | 'Mitsubishi Triton'
+  | 'Nissan Navara'
   | 'Toyota HiLux'
   | 'Toyota Tundra'
   | 'Toyota HiAce'
   | 'Other makes';
 
-export type VehicleMake = 'BYD' | 'Ford' | 'GWM' | 'Isuzu' | 'Toyota' | 'Other';
+export type VehicleMake = 'BYD' | 'Ford' | 'GWM' | 'Isuzu' | 'JAC' | 'Kia' | 'LDV' | 'Mazda' | 'MG' | 'Mitsubishi' | 'Nissan' | 'Toyota' | 'Other';
 
 export interface VehicleModel {
   id: string;
@@ -53,6 +61,13 @@ const UNPUBLISHED = {
   GWM: ['ute.trackFront', 'ute.trackRear', 'ute.frontOverhang', 'ute.tub.floorHeight'],
   Isuzu: ['ute.tub.floorHeight', 'ute.kerbFrontPct'],
   Toyota: ['ute.tub.length', 'ute.tub.width', 'ute.tub.depth', 'ute.tub.floorHeight', 'ute.kerbFrontPct'],
+  JAC: ['ute.tub.length', 'ute.tub.width', 'ute.tub.depth', 'ute.tub.floorHeight', 'ute.kerbFrontPct'],
+  Kia: ['ute.tub.length', 'ute.tub.width', 'ute.tub.depth', 'ute.tub.floorHeight', 'ute.kerbFrontPct'],
+  LDV: ['ute.tub.length', 'ute.tub.width', 'ute.tub.depth', 'ute.tub.floorHeight', 'ute.kerbFrontPct'],
+  Mazda: ['ute.tub.length', 'ute.tub.width', 'ute.tub.depth', 'ute.tub.floorHeight', 'ute.kerbFrontPct'],
+  MG: ['ute.tub.length', 'ute.tub.width', 'ute.tub.depth', 'ute.tub.floorHeight', 'ute.kerbFrontPct'],
+  Mitsubishi: ['ute.tub.length', 'ute.tub.width', 'ute.tub.depth', 'ute.tub.floorHeight', 'ute.kerbFrontPct'],
+  Nissan: ['ute.tub.length', 'ute.tub.width', 'ute.tub.depth', 'ute.tub.floorHeight', 'ute.kerbFrontPct'],
   Generic: [],
 };
 const TUB = ['ute.tub.length', 'ute.tub.width', 'ute.tub.depth'];
@@ -63,9 +78,9 @@ const LIMITS = ['gvm', 'gcm', 'frontAxle', 'rearAxle', 'kerb', 'tare', 'payload'
 const EVERYTHING = ['ute.wheelbase', 'ute.trackFront', 'ute.trackRear', ...OVERALL, 'ute.frontOverhang', ...TUB, 'ute.tub.floorHeight', 'ute.kerbFrontPct', 'ute.tyre.size', 'ute.tyre.loadIndex', ...LIMITS];
 
 const makeOf = (group: VehicleGroup): keyof typeof UNPUBLISHED =>
-  (['BYD', 'Ford', 'GWM', 'Isuzu', 'Toyota'] as const).find((make) => group.includes(make)) ?? 'Generic';
+  (['BYD', 'Ford', 'GWM', 'Isuzu', 'JAC', 'Kia', 'LDV', 'Mazda', 'MG', 'Mitsubishi', 'Nissan', 'Toyota'] as const).find((make) => group.split(' ').includes(make)) ?? 'Generic';
 
-const MAKE: Record<keyof typeof UNPUBLISHED, VehicleMake> = { BYD: 'BYD', Ford: 'Ford', GWM: 'GWM', Isuzu: 'Isuzu', Toyota: 'Toyota', Generic: 'Other' };
+const MAKE: Record<keyof typeof UNPUBLISHED, VehicleMake> = { BYD: 'BYD', Ford: 'Ford', GWM: 'GWM', Isuzu: 'Isuzu', JAC: 'JAC', Kia: 'Kia', LDV: 'LDV', Mazda: 'Mazda', MG: 'MG', Mitsubishi: 'Mitsubishi', Nissan: 'Nissan', Toyota: 'Toyota', Generic: 'Other' };
 
 type Body = Pick<
   UteSpec,
@@ -770,6 +785,83 @@ const BYD: Def[] = [
   bydSuv('sealion7-performance', 'BYD Sealion 7 Performance AWD', SEALION7, [2750, 2340, 2340, 1500, 750], { size: '245/45R20', loadIndex: 103 }),
 ];
 
+// JAC, Kia, LDV, Mazda, MG, Mitsubishi and Nissan: every current dual cab pick-up, from CarExpert's
+// specification pages for the current model year. Kerb weight, GVM, braked and unbraked towing,
+// dimensions, wheelbase, track and tyres are as published, and so are the tare, GCM, axle ratings,
+// front overhang and tyre load index wherever the page gives them; where it doesn't (most often for
+// JAC, and the GCM of the LDV Terron 9 and MG U9) they are typical and listed per model. The tow ball
+// download is never on those pages, so it is typical everywhere: a tenth of the braked towing.
+// CarExpert's LDV "T60 Max Plus" is left out: LDV's current range is the Pro and Luxe, and that
+// page's axle ratings add up to less than its GVM.
+type Dims = { wb: number; L: number; W: number; H: number; track: [number, number]; fo: number };
+
+const listed = (id: string, group: VehicleGroup, name: string, z: Dims, r: Ratings, tyre: Def['tyre'], typical: string[]): Def => ({
+  id,
+  group,
+  name,
+  body: {
+    bodyStyle: 'ute',
+    wheelbase: z.wb,
+    trackFront: z.track[0],
+    trackRear: z.track[1],
+    overallLength: z.L,
+    overallWidth: z.W,
+    overallHeight: z.H,
+    frontOverhang: z.fo,
+    tub: { length: 1520, width: 1520, depth: 500, floorHeight: 850 },
+    kerbFrontPct: 56,
+  },
+  limits: ratings(r),
+  tyre,
+  typical,
+});
+
+const MORE: Def[] = [
+  // JAC
+  listed('jac-t9-haven-4x4', 'JAC T9', 'JAC T9 Haven 2.0L diesel 4x4', { wb: 3110, L: 5330, W: 1965, H: 1920, track: [1610, 1610], fo: 950 }, [3100, 5930, 1460, 1920, 2055, 1996, 3200, 750, 320], { size: '265/60R18', loadIndex: 110 }, ['ute.limits.towBallMax', 'ute.limits.frontAxle', 'ute.limits.rearAxle', 'ute.limits.tare', 'ute.frontOverhang']),
+  listed('jac-t9-oasis-4x4', 'JAC T9', 'JAC T9 Oasis 2.0L diesel 4x4', { wb: 3110, L: 5330, W: 1965, H: 1920, track: [1610, 1610], fo: 950 }, [3100, 5930, 1460, 1920, 2055, 1996, 3200, 750, 320], { size: '265/60R18', loadIndex: 110 }, ['ute.limits.towBallMax', 'ute.limits.frontAxle', 'ute.limits.rearAxle', 'ute.limits.tare', 'ute.frontOverhang']),
+  listed('jac-t9-osprey-4x4', 'JAC T9', 'JAC T9 Osprey 2.0L diesel 4x4', { wb: 3110, L: 5330, W: 1965, H: 1920, track: [1610, 1610], fo: 950 }, [3050, 5930, 1430, 1890, 2070, 2011, 3200, 750, 320], { size: '265/60R18', loadIndex: 110 }, ['ute.limits.towBallMax', 'ute.limits.frontAxle', 'ute.limits.rearAxle', 'ute.limits.tare', 'ute.frontOverhang']),
+  listed('jac-t9-osprey-x-4x4', 'JAC T9', 'JAC T9 Osprey X 2.0L diesel 4x4', { wb: 3110, L: 5330, W: 1965, H: 1920, track: [1610, 1610], fo: 950 }, [3050, 5930, 1430, 1890, 2070, 2011, 3200, 750, 320], { size: '265/60R18', loadIndex: 110 }, ['ute.limits.towBallMax', 'ute.limits.frontAxle', 'ute.limits.rearAxle', 'ute.limits.tare', 'ute.frontOverhang']),
+  // Kia
+  listed('tasman-s-4x2', 'Kia Tasman', 'Kia Tasman S 2.2L diesel 4x2', { wb: 3270, L: 5410, W: 1930, H: 1870, track: [1636, 1624], fo: 855 }, [3250, 6200, 1450, 2040, 2126, 2067, 3500, 750, 350], { size: '265/65R17', loadIndex: 112 }, ['ute.limits.towBallMax']),
+  listed('tasman-s-4x4', 'Kia Tasman', 'Kia Tasman S 2.2L diesel 4x4', { wb: 3270, L: 5410, W: 1930, H: 1870, track: [1636, 1624], fo: 855 }, [3250, 6200, 1450, 2040, 2225, 2166, 3500, 750, 350], { size: '265/65R17', loadIndex: 112 }, ['ute.limits.towBallMax']),
+  listed('tasman-sx-4x4', 'Kia Tasman', 'Kia Tasman SX 2.2L diesel 4x4', { wb: 3270, L: 5410, W: 1930, H: 1870, track: [1636, 1624], fo: 855 }, [3250, 6200, 1450, 2040, 2225, 2166, 3500, 750, 350], { size: '265/65R17', loadIndex: 112 }, ['ute.limits.towBallMax']),
+  listed('tasman-x-line-4x4', 'Kia Tasman', 'Kia Tasman X-Line 2.2L diesel 4x4', { wb: 3270, L: 5410, W: 1930, H: 1890, track: [1636, 1624], fo: 855 }, [3250, 6200, 1450, 2040, 2223, 2164, 3500, 750, 350], { size: '265/60R18', loadIndex: 112 }, ['ute.limits.towBallMax']),
+  listed('tasman-x-pro-4x4', 'Kia Tasman', 'Kia Tasman X-Pro 2.2L diesel 4x4', { wb: 3270, L: 5410, W: 1930, H: 1920, track: [1636, 1624], fo: 855 }, [3250, 6200, 1450, 2002, 2237, 2178, 3500, 750, 350], { size: '265/70R17', loadIndex: 115 }, ['ute.limits.towBallMax']),
+  // LDV
+  listed('t60-pro-4x4', 'LDV T60 Max', 'LDV T60 Max Pro 2.0L diesel 4x4', { wb: 3155, L: 5365, W: 1900, H: 1840, track: [1580, 1580], fo: 942 }, [3150, 6250, 1360, 1850, 2110, 2056, 3500, 750, 350], { size: '245/65R17', loadIndex: 111 }, ['ute.limits.towBallMax']),
+  listed('terron9-evolve-4x4', 'LDV Terron 9', 'LDV Terron 9 Evolve 2.5L diesel 4x4', { wb: 3300, L: 5500, W: 1997, H: 1874, track: [1685, 1685], fo: 953 }, [3500, 7000, 1640, 2170, 2495, 2436, 3500, 750, 350], { size: '275/55R20', loadIndex: 112 }, ['ute.limits.towBallMax', 'ute.limits.frontAxle', 'ute.limits.rearAxle', 'ute.limits.gcm', 'ute.tyre.loadIndex']),
+  listed('terron9-origin-4x4', 'LDV Terron 9', 'LDV Terron 9 Origin 2.5L diesel 4x4', { wb: 3300, L: 5500, W: 1997, H: 1874, track: [1685, 1685], fo: 953 }, [3500, 7000, 1640, 2170, 2400, 2341, 3500, 750, 350], { size: '265/65R18', loadIndex: 112 }, ['ute.limits.towBallMax', 'ute.limits.frontAxle', 'ute.limits.rearAxle', 'ute.limits.gcm', 'ute.tyre.loadIndex']),
+  // Mazda
+  listed('bt50-boss-4x4', 'Mazda BT-50', 'Mazda BT-50 Boss 3.0L diesel 4x4', { wb: 3125, L: 5280, W: 1870, H: 1785, track: [1570, 1570], fo: 905 }, [3100, 6000, 1450, 1910, 2015, 1959, 3500, 750, 350], { size: '255/65R17', loadIndex: 110 }, ['ute.limits.towBallMax']),
+  listed('bt50-gt-4x4', 'Mazda BT-50', 'Mazda BT-50 GT 3.0L diesel 4x4', { wb: 3125, L: 5280, W: 1870, H: 1790, track: [1570, 1570], fo: 905 }, [3100, 6000, 1450, 1910, 2102, 2046, 3500, 750, 350], { size: '265/60R18', loadIndex: 110 }, ['ute.limits.towBallMax']),
+  listed('bt50-sp-4x4', 'Mazda BT-50', 'Mazda BT-50 SP 3.0L diesel 4x4', { wb: 3125, L: 5280, W: 1870, H: 1790, track: [1570, 1570], fo: 905 }, [3100, 6000, 1450, 1910, 2176, 2120, 3500, 750, 350], { size: '265/60R18', loadIndex: 110 }, ['ute.limits.towBallMax']),
+  listed('bt50-thunder-4x4', 'Mazda BT-50', 'Mazda BT-50 Thunder 3.0L diesel 4x4', { wb: 3125, L: 5470, W: 1870, H: 1790, track: [1570, 1570], fo: 905 }, [3100, 6000, 1450, 1910, 2213, 2157, 3500, 750, 350], { size: '265/60R18', loadIndex: 110 }, ['ute.limits.towBallMax']),
+  listed('bt50-xs-4x2', 'Mazda BT-50', 'Mazda BT-50 XS 2.2L diesel 4x2', { wb: 3125, L: 5280, W: 1870, H: 1800, track: [1570, 1570], fo: 905 }, [3000, 5850, 1450, 1910, 1888, 1832, 3500, 750, 350], { size: '255/65R17', loadIndex: 110 }, ['ute.limits.towBallMax']),
+  listed('bt50-xs-4x4', 'Mazda BT-50', 'Mazda BT-50 XS 2.2L diesel 4x4', { wb: 3125, L: 5280, W: 1870, H: 1800, track: [1570, 1570], fo: 905 }, [3100, 6000, 1450, 1910, 1961, 1905, 3500, 750, 350], { size: '255/65R17', loadIndex: 110 }, ['ute.limits.towBallMax']),
+  listed('bt50-xt-4x2', 'Mazda BT-50', 'Mazda BT-50 XT 3.0L diesel 4x2', { wb: 3125, L: 5280, W: 1870, H: 1785, track: [1570, 1570], fo: 905 }, [3000, 5850, 1450, 1910, 1929, 1873, 3500, 750, 350], { size: '255/65R17', loadIndex: 110 }, ['ute.limits.towBallMax']),
+  listed('bt50-xt-4x4', 'Mazda BT-50', 'Mazda BT-50 XT 3.0L diesel 4x4', { wb: 3125, L: 5280, W: 1870, H: 1785, track: [1570, 1570], fo: 905 }, [3100, 6000, 1450, 1910, 2015, 1959, 3500, 750, 350], { size: '255/65R17', loadIndex: 110 }, ['ute.limits.towBallMax']),
+  listed('bt50-xtr-4x2', 'Mazda BT-50', 'Mazda BT-50 XTR 3.0L diesel 4x2', { wb: 3125, L: 5280, W: 1870, H: 1790, track: [1570, 1570], fo: 905 }, [3000, 5850, 1450, 1910, 2012, 1956, 3500, 750, 350], { size: '265/60R18', loadIndex: 110 }, ['ute.limits.towBallMax']),
+  listed('bt50-xtr-4x4', 'Mazda BT-50', 'Mazda BT-50 XTR 3.0L diesel 4x4', { wb: 3125, L: 5280, W: 1870, H: 1790, track: [1570, 1570], fo: 905 }, [3100, 6000, 1450, 1910, 2098, 2042, 3500, 750, 350], { size: '265/60R18', loadIndex: 110 }, ['ute.limits.towBallMax']),
+  // MG
+  listed('u9-explore-4x4', 'MG U9', 'MG U9 Explore 2.5L diesel 4x4', { wb: 3300, L: 5500, W: 1997, H: 1874, track: [1685, 1685], fo: 953 }, [3320, 6820, 1600, 2100, 2450, 2391, 3500, 750, 350], { size: '265/65R18', loadIndex: 112 }, ['ute.limits.towBallMax', 'ute.limits.gcm', 'ute.tyre.loadIndex']),
+  listed('u9-explore-black-edition-4x4', 'MG U9', 'MG U9 Explore Black Edition 2.5L diesel 4x4', { wb: 3300, L: 5500, W: 1997, H: 1874, track: [1685, 1685], fo: 953 }, [3320, 6820, 1600, 2100, 2485, 2426, 3500, 750, 350], { size: '275/60R19', loadIndex: 112 }, ['ute.limits.towBallMax', 'ute.limits.gcm', 'ute.tyre.loadIndex']),
+  listed('u9-explore-pro-4x4', 'MG U9', 'MG U9 Explore Pro 2.5L diesel 4x4', { wb: 3300, L: 5500, W: 1997, H: 1874, track: [1685, 1685], fo: 953 }, [3320, 6820, 1600, 2100, 2550, 2491, 3500, 750, 350], { size: '275/55R20', loadIndex: 112 }, ['ute.limits.towBallMax', 'ute.limits.gcm', 'ute.tyre.loadIndex']),
+  listed('u9-explore-x-4x4', 'MG U9', 'MG U9 Explore X 2.5L diesel 4x4', { wb: 3300, L: 5500, W: 1997, H: 1874, track: [1685, 1685], fo: 953 }, [3320, 6820, 1600, 2100, 2485, 2426, 3500, 750, 350], { size: '275/60R19', loadIndex: 112 }, ['ute.limits.towBallMax', 'ute.limits.gcm', 'ute.tyre.loadIndex']),
+  // Mitsubishi
+  listed('triton-gls-4x4', 'Mitsubishi Triton', 'Mitsubishi Triton GLS 2.4L diesel 4x4', { wb: 3130, L: 5320, W: 1865, H: 1795, track: [1570, 1565], fo: 890 }, [3200, 6250, 1580, 2040, 2125, 2070, 3500, 750, 350], { size: '265/60R18', loadIndex: 110 }, ['ute.limits.towBallMax']),
+  listed('triton-glx-4x2', 'Mitsubishi Triton', 'Mitsubishi Triton GLX 2.4L diesel 4x2', { wb: 3130, L: 5320, W: 1865, H: 1795, track: [1570, 1565], fo: 890 }, [3070, 6210, 1500, 1980, 2000, 1945, 3500, 750, 350], { size: '265/65R17', loadIndex: 112 }, ['ute.limits.towBallMax']),
+  listed('triton-glx-4x4', 'Mitsubishi Triton', 'Mitsubishi Triton GLX 2.4L diesel 4x4', { wb: 3130, L: 5320, W: 1865, H: 1795, track: [1570, 1565], fo: 890 }, [3200, 6250, 1580, 2040, 2117, 2062, 3500, 750, 350], { size: '265/65R17', loadIndex: 112 }, ['ute.limits.towBallMax']),
+  listed('triton-glx-r-4x4', 'Mitsubishi Triton', 'Mitsubishi Triton GLX-R 2.4L diesel 4x4', { wb: 3130, L: 5320, W: 1865, H: 1815, track: [1570, 1565], fo: 890 }, [3200, 6250, 1580, 2040, 2120, 2065, 3500, 750, 350], { size: '265/60R18', loadIndex: 110 }, ['ute.limits.towBallMax']),
+  listed('triton-gsr-4x4', 'Mitsubishi Triton', 'Mitsubishi Triton GSR 2.4L diesel 4x4', { wb: 3130, L: 5320, W: 1930, H: 1795, track: [1570, 1565], fo: 890 }, [3200, 6250, 1580, 2040, 2170, 2115, 3500, 750, 350], { size: '265/60R18', loadIndex: 110 }, ['ute.limits.towBallMax']),
+  listed('triton-raider-4x4', 'Mitsubishi Triton', 'Mitsubishi Triton Raider 2.4L diesel 4x4', { wb: 3130, L: 5350, W: 1930, H: 1832, track: [1590, 1565], fo: 890 }, [3185, 6250, 1580, 2000, 2195, 2140, 3500, 750, 350], { size: '285/60R18', loadIndex: 116 }, ['ute.limits.towBallMax']),
+  // Nissan
+  listed('navara-pro-4x-4x4', 'Nissan Navara', 'Nissan Navara PRO-4X 2.4L diesel 4x4', { wb: 3130, L: 5320, W: 1865, H: 1815, track: [1570, 1565], fo: 890 }, [3190, 6250, 1580, 2040, 2226, 2171, 3500, 750, 350], { size: '265/65R17', loadIndex: 112 }, ['ute.limits.towBallMax']),
+  listed('navara-sl-4x4', 'Nissan Navara', 'Nissan Navara SL 2.4L diesel 4x4', { wb: 3130, L: 5320, W: 1865, H: 1795, track: [1570, 1565], fo: 890 }, [3190, 6250, 1580, 2040, 2126, 2071, 3500, 750, 350], { size: '265/65R17', loadIndex: 112 }, ['ute.limits.towBallMax']),
+  listed('navara-st-4x4', 'Nissan Navara', 'Nissan Navara ST 2.4L diesel 4x4', { wb: 3130, L: 5320, W: 1865, H: 1795, track: [1570, 1565], fo: 890 }, [3190, 6250, 1580, 2040, 2143, 2088, 3500, 750, 350], { size: '265/65R17', loadIndex: 112 }, ['ute.limits.towBallMax']),
+  listed('navara-st-x-4x4', 'Nissan Navara', 'Nissan Navara ST-X 2.4L diesel 4x4', { wb: 3130, L: 5320, W: 1865, H: 1795, track: [1570, 1565], fo: 890 }, [3190, 6250, 1580, 2040, 2171, 2116, 3500, 750, 350], { size: '265/60R18', loadIndex: 112 }, ['ute.limits.towBallMax']),
+];
+
 // For any other make: round figures typical of a mid-size 4x4 diesel dual cab ute (Hilux, Ranger,
 // BT-50, Triton class) and of a large five-seat SUV that tows, all placeholders for the placard's.
 const GENERIC: Def[] = [
@@ -815,11 +907,11 @@ const GENERIC: Def[] = [
   },
 ];
 
-export const VEHICLES: VehicleModel[] = [...BYD, ...FORD, ...DEFS, ...ISUZU, ...TOYOTA, ...GENERIC].map((d) => ({
+export const VEHICLES: VehicleModel[] = [...BYD, ...FORD, ...DEFS, ...ISUZU, ...MORE, ...TOYOTA, ...GENERIC].map((d) => ({
   id: d.id,
   make: MAKE[makeOf(d.group)],
   group: d.group,
-  label: d.name.replace(/^(BYD|Ford|GWM|Isuzu|Toyota) /, '') + (d.years ? ` (${d.years})` : ''),
+  label: d.name.replace(/^(BYD|Ford|GWM|Isuzu|JAC|Kia|LDV|Mazda|MG|Mitsubishi|Nissan|Toyota) /, '') + (d.years ? ` (${d.years})` : ''),
   spec: () => ({
     model: d.id,
     name: d.name,
@@ -837,11 +929,18 @@ export const VEHICLE_MAKES: { make: VehicleMake; label: string }[] = [
   { make: 'Ford', label: 'Ford' },
   { make: 'GWM', label: 'GWM' },
   { make: 'Isuzu', label: 'Isuzu' },
+  { make: 'JAC', label: 'JAC' },
+  { make: 'Kia', label: 'Kia' },
+  { make: 'LDV', label: 'LDV' },
+  { make: 'Mazda', label: 'Mazda' },
+  { make: 'MG', label: 'MG' },
+  { make: 'Mitsubishi', label: 'Mitsubishi' },
+  { make: 'Nissan', label: 'Nissan' },
   { make: 'Toyota', label: 'Toyota' },
   { make: 'Other', label: 'Other make (generic)' },
 ];
 
-export const VEHICLE_GROUPS: VehicleGroup[] = ['BYD Shark 6', 'BYD SUVs', 'Ford Ranger', 'Ford F-150', 'GWM Cannon Alpha', 'GWM Cannon', 'Earlier GWM models', 'Isuzu D-MAX', 'Isuzu MU-X', 'Toyota HiLux', 'Toyota Tundra', 'Toyota HiAce', 'Other makes'];
+export const VEHICLE_GROUPS: VehicleGroup[] = ['BYD Shark 6', 'BYD SUVs', 'Ford Ranger', 'Ford F-150', 'GWM Cannon Alpha', 'GWM Cannon', 'Earlier GWM models', 'Isuzu D-MAX', 'Isuzu MU-X', 'JAC T9', 'Kia Tasman', 'LDV T60 Max', 'LDV Terron 9', 'Mazda BT-50', 'MG U9', 'Mitsubishi Triton', 'Nissan Navara', 'Toyota HiLux', 'Toyota Tundra', 'Toyota HiAce', 'Other makes'];
 
 export function vehicleModel(id: string): VehicleModel {
   return VEHICLES.find((v) => v.id === id) ?? VEHICLES.find((v) => v.id === DEFAULT_VEHICLE)!;
