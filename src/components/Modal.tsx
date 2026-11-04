@@ -1,7 +1,20 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react';
 
 /** A dialog over the app: Escape, the close button or a click outside closes it. */
-export function Modal({ title, footer, onClose, children }: { title: ReactNode; footer?: ReactNode; onClose: () => void; children: ReactNode }) {
+export function Modal({
+  title,
+  footer,
+  onClose,
+  className,
+  children,
+}: {
+  title: ReactNode;
+  footer?: ReactNode;
+  onClose: () => void;
+  /** Added to the dialog's class, e.g. for a wider dialog. */
+  className?: string;
+  children: ReactNode;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const close = useRef(onClose);
   close.current = onClose;
@@ -22,7 +35,7 @@ export function Modal({ title, footer, onClose, children }: { title: ReactNode; 
 
   return (
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} ref={ref}>
+      <div className={className ? `modal ${className}` : 'modal'} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} ref={ref}>
         <div className="modal-head">
           <h2 id={titleId}>{title}</h2>
           <button className="modal-close" onClick={onClose} aria-label="Close">
