@@ -1,3 +1,7 @@
+// The printable summary (save as PDF from the print dialog). Printing first grabs a snapshot of the 3D
+// view (`printReport` in TopBar.tsx), then this renders the report into its own element, which the print
+// stylesheet shows instead of the app, and stops rendering it once printing is done.
+
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { WHEEL_IDS, overallStatus } from '../model/calc';

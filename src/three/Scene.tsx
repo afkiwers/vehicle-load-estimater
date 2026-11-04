@@ -125,6 +125,12 @@ function frame(preset: ViewPreset, camera: THREE.PerspectiveCamera, direction?: 
   return { target, position: target.clone().addScaledVector(dir, hi) };
 }
 
+/**
+ * Moves the camera, never on its own: on a view button (`view.nonce`), when the scene's contents
+ * change (another setup, towing on or off, another trailer type: re-framed from the same angle),
+ * and when the slope changes (camera turned with the road). Between those the user's orbit is left
+ * alone, including on window resizes after the first view.
+ */
 function CameraRig() {
   const view = useUi((s) => s.view);
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera;
@@ -168,6 +174,13 @@ function CameraRig() {
   return null;
 }
 
+/**
+ * The 3D view: studio lighting, the ground, the vehicle (ute/SUV or van model), the trailer, the
+ * items, labels and the camera. It renders on demand (`frameloop="demand"`): the scene is static, so
+ * a frame is drawn only when props change or the camera moves, which keeps phones cool. Everything
+ * standing on the road sits in `SlopeTilt`, so the slope tilts it as one, and picking converts hits
+ * back into its level coordinates (Interaction.tsx).
+ */
 export function Scene() {
   const setup = useSetup();
   const result = useResult();

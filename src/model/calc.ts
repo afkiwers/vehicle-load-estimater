@@ -5,6 +5,11 @@
 // splits its share between its two wheels by lever over the track. A rigid
 // four-wheel vehicle is statically indeterminate side to side, so this per-axle
 // split ignores roll stiffness; it is the usual approximation for load planning.
+//
+// Everything here is pure: `compute(setup)` takes a whole setup and returns every load, check and
+// data issue the UI shows (see `Result`). Start reading at `compute`, which runs the stages in order;
+// `capacityAt` reuses it to find how much more fits at a spot. Masses are kg, distances mm, and the
+// host frames (ute: x behind the front axle; caravan: x behind the tow ball) are described in types.ts.
 
 import type {
   CaravanReadings,
@@ -338,6 +343,21 @@ function splitAxle<K extends string>(
   return [axle / 2, axle / 2];
 }
 
+/**
+ * The vehicle's wheel loads as weighed, before any items are moved or added: the baseline every
+ * item effect is added to.
+ *
+ * Readings may come in any combination (four wheels, two axles, a total, or nothing). Each axle is
+ * taken from its two wheel readings if both exist, else the axle reading; a missing axle is the total
+ * less the other one; with only one axle and no total, the other is scaled by the kerb weight split
+ * (`kerbFrontPct`); with nothing at all, the kerb weight is split that way. Axles are then split into
+ * wheels by whichever wheel readings exist (`splitAxle`, 50/50 otherwise).
+ *
+ * Everything filled in is reported in `derived` (shown in grey in the form) and `source` says how
+ * much was measured. Redundant readings are cross-checked within the tolerance in `s`, and
+ * implausible ones (too heavy, lighter than tare, odd front/rear split) become `issues`; they never
+ * stop the calculation.
+ */
 export function deriveUteBaseline(r: UteReadings, ute: UteSpec, s: CheckSettings): UteBaseline {
   const issues: Issue[] = [];
   const derived: UteBaseline['derived'] = {};
@@ -461,6 +481,17 @@ export function deriveUteBaseline(r: UteReadings, ute: UteSpec, s: CheckSettings
   return { wheels: { fl, fr, rl, rr }, source, derived, issues };
 }
 
+/**
+ * The trailer's own loads on the tow ball and on each side of its axle group, as weighed unhitched
+ * with the axles where they were at the time (`weighedAxles`; `ownWeightAt` moves them later).
+ *
+ * The axle group is taken from the per-axle readings (tandem only), else the side readings, else the
+ * group reading; ball and group then fill each other in from the total. When ball or group is still
+ * missing, the plated tare ball ratio (tareBall / tare, or a typical 10%) estimates it; with no
+ * reading at all, the plated tare and tare ball weight are used. Sides and tandem axles are split by
+ * `splitAxle`. As for the vehicle, `derived` lists what was filled in, and inconsistent or implausible
+ * readings (ball share outside 4–20%, lighter than tare, tandem axles far apart) become `issues`.
+ */
 export function deriveCaravanBaseline(
   r: CaravanReadings,
   cv: CaravanSpec,
@@ -616,6 +647,306 @@ function minOf(...values: (number | null | undefined)[]): number | null {
   return real.length ? Math.min(...real) : null;
 }
 
+/** What the setup's items add to each host, and the moments the slope needs. */
+interface ItemLoads {
+  ute: WheelLoads;
+  caravan: CaravanLoads;
+  /** Each item's own effect, for the inspector and the items list. */
+  effects: Record<string, ItemEffect>;
+  /** Trailer items while towing is off: they carry nothing and are only reported. */
+  ignored: number;
+  /** Σ mass × height of the items on each host (kg·mm); the trailer's measured above the tow ball. */
+  uteHeightMoment: number;
+  caravanHeightMoment: number;
+}
+
+/**
+ * Adds up what every item puts on the vehicle's wheels and on the trailer, level ground.
+ *
+ * An enabled item counts where it is now. An item ticked "was on the vehicle when weighed" is
+ * already inside the readings at its `measured` placement, so it is also counted negatively there:
+ * left where it was weighed the two cancel, moved it adds the difference, and disabled it is taken
+ * off. Trailer items while towing is off can't go anywhere and are only counted in `ignored`. The
+ * height moments are collected here too, for the slope (see `compute`).
+ */
+function itemLoads(setup: Setup, ute: UteSpec, cv: CaravanSpec): ItemLoads {
+  const out: ItemLoads = { ute: zeroWheels(), caravan: zeroCaravan(), effects: {}, ignored: 0, uteHeightMoment: 0, caravanHeightMoment: 0 };
+  const addTo = (host: Host, pos: Vec3, mass: number, effect: ItemEffect) => {
+    if (host === 'ute') {
+      effect.ute = addWheels(effect.ute, uteShare(mass, pos, ute));
+      out.uteHeightMoment += mass * pos.z;
+    } else if (setup.towing) {
+      effect.caravan = addCaravan(effect.caravan, caravanShare(mass, pos, cv));
+      out.caravanHeightMoment += mass * (pos.z - setup.hitch.ballHeight);
+    } else {
+      return false;
+    }
+    return true;
+  };
+  for (const item of setup.items) {
+    const effect: ItemEffect = { ute: zeroWheels(), caravan: zeroCaravan() };
+    if (item.mass > 0) {
+      let counted = true;
+      if (item.enabled) counted = addTo(item.host, item.pos, item.mass, effect) && counted;
+      if (item.measured) counted = addTo(item.measured.host, item.measured.pos, -item.mass, effect) && counted;
+      if (!counted) out.ignored++;
+    }
+    out.effects[item.id] = effect;
+    out.ute = addWheels(out.ute, effect.ute);
+    out.caravan = addCaravan(out.caravan, effect.caravan);
+  }
+  return out;
+}
+
+/** Equal and opposite load on the two axles, half on each wheel: what the slope and drawbar pull move. */
+const shiftToRear = (rearGain: number): WheelLoads => ({ fl: -rearGain / 2, fr: -rearGain / 2, rl: rearGain / 2, rr: rearGain / 2 });
+
+interface Hitched {
+  /** What hitching (ball weight and WDH) adds to each vehicle wheel. */
+  hitch: WheelLoads;
+  /** Front-to-rear shift from the trailer pulling (climbing) or pushing (descending) on the ball. */
+  drawbarShift: number;
+  /** The trailer's weight along the slope, carried by the ball (kg; + pulls back). */
+  drawbar: number;
+  caravan: CaravanResult;
+  result: HitchResult;
+}
+
+/**
+ * Hitches the trailer to the vehicle: the trailer's loads on its ball and axles, and what they and a
+ * weight distribution hitch do to the vehicle's axles.
+ *
+ * 1. The trailer's own weight is moved to where its axles are now (`ownWeightAt`) and the items added.
+ * 2. Slope: the trailer pivots on the ball, so its centre of mass height above the ball moves
+ *    `moment·tan/a` from the ball onto the axle group. With its brakes taken as off, the ball also
+ *    carries the trailer's weight along the slope (`drawbar`), which, acting at ball height, moves
+ *    `drawbar·ballHeight/L` from the vehicle's front axle to its rear.
+ * 3. The ball weight B, `d` behind the rear axle, adds B(L+d)/L to the rear axle and takes B·d/L off
+ *    the front (a lever about the rear axle).
+ * 4. WDH: the spring bars apply a couple M at the hitch. It moves M/L from the rear axle to the front
+ *    and M/a from the hitch onto the trailer axles. M is solved so the front axle regains `restorePct`
+ *    of what the ball weight took off it: M = restore·B·d·a / (d + a).
+ *
+ * Tandem axles share any change from the weighed loads equally. Adds data issues for touching tandem
+ * wheels, a negative (tail-heavy) ball weight and the WDH approval reminder to `issues`.
+ *
+ * @param base the trailer as weighed; @param items what items add to it; @param heightMoment the
+ * items' Σ mass × height above the ball; @param tan the slope's gradient as rise over run;
+ * @param frontUnhitched the vehicle's front axle load before hitching, for the unloading check.
+ */
+function hitchUp(
+  setup: Setup,
+  ute: UteSpec,
+  cv: CaravanSpec,
+  base: CaravanBaseline,
+  items: CaravanLoads,
+  heightMoment: number,
+  trailerCog: number,
+  tan: number,
+  frontUnhitched: number,
+  issues: Issue[],
+): Hitched {
+  const { hitch } = setup;
+  const T = trailerName(cv.kind);
+  const own = ownWeightAt(base.loads, cv);
+  const levelLoads = addCaravan(own, items);
+  const mass = levelLoads.ball + levelLoads.left + levelLoads.right;
+  const L = ute.wheelbase;
+  const d = hitch.ballOffset;
+  const a = axleCentre(cv);
+  // The trailer's own weight sits at its assumed centre of mass height; items at theirs.
+  const moment = heightMoment + (base.loads.ball + base.loads.left + base.loads.right) * (trailerCog - hitch.ballHeight);
+  const slopeToAxles = (moment * tan) / a;
+  const loads = { ball: levelLoads.ball - slopeToAxles, left: levelLoads.left + slopeToAxles / 2, right: levelLoads.right + slopeToAxles / 2 };
+  const B = loads.ball;
+  const drawbar = mass * tan;
+  const drawbarShift = (drawbar * hitch.ballHeight) / L;
+
+  if (cv.axles.length === 2) {
+    const spacing = Math.abs(cv.axles[1] - cv.axles[0]);
+    const tyre = tyreDiameter(cv.tyre.size);
+    if (tyre && spacing < tyre + 20) {
+      issues.push({
+        level: 'warn',
+        message: `The ${T} axles are ${mm(spacing)} apart, less than a tyre diameter (${mm(tyre)}): the wheels would touch. Check the axle distances from the tow ball.`,
+        fields: ['caravan.axles.0', 'caravan.axles.1'],
+      });
+    }
+  }
+
+  if (B < 0) {
+    issues.push({
+      level: 'error',
+      message: `The ball weight is negative (${kg(B)}): the ${T} is tail-heavy and lifts the tow ball. This is dangerous; move weight forward.`,
+    });
+  }
+
+  // A WDH couple M at the hitch moves M/L from the rear to the front axle
+  // and M/a from the hitch onto the caravan axles. M is chosen so the front
+  // axle regains the requested share of the load the ball weight took off it.
+  // A tail-heavy trailer (B ≤ 0) has nothing for the bars to restore.
+  const restore = hitch.wdh.enabled ? Math.min(Math.max(hitch.wdh.restorePct, 0), 150) / 100 : 0;
+  const M = B > 0 ? (restore * B * d * a) / (d + a) : 0;
+  const netHitch = B - M / a;
+  const frontDelta = (-netHitch * d) / L + M / L;
+  const rearDelta = (netHitch * (L + d)) / L - M / L;
+
+  const axleLeft = loads.left + M / a / 2;
+  const axleRight = loads.right + M / a / 2;
+  const groupChange = axleLeft + axleRight - (base.loads.left + base.loads.right);
+  const frontHitched = frontUnhitched + frontDelta - drawbarShift;
+  if (hitch.wdh.enabled) {
+    issues.push({
+      level: 'info',
+      message: 'Weight distribution hitch on: check that your vehicle and tow bar manufacturers approve WDH use, and the setting they specify.',
+    });
+  }
+  return {
+    hitch: { fl: frontDelta / 2, fr: frontDelta / 2, rl: rearDelta / 2, rr: rearDelta / 2 },
+    drawbarShift,
+    drawbar,
+    caravan: {
+      baseline: base,
+      items,
+      loads,
+      mass,
+      axleLeft,
+      axleRight,
+      axle: axleLeft + axleRight,
+      axleLoads: base.axles.map((x) => x + groupChange / base.axles.length),
+      ballPct: mass > 0 ? (B / mass) * 100 : 0,
+      // `ownWeightAt` returns its input unchanged when the axles haven't moved.
+      axleMove: own === base.loads ? null : { from: axleCentre({ ...cv, axles: cv.weighedAxles }), to: a, ballBefore: base.loads.ball, ballAfter: own.ball },
+      slopeToAxles,
+    },
+    result: {
+      ball: B,
+      wdhMoment: M,
+      netHitch,
+      wdhToCaravan: M / a,
+      frontUnhitched,
+      frontHitched,
+      frontUnloadPct: frontUnhitched > 0 ? ((frontUnhitched - frontHitched) / frontUnhitched) * 100 : 0,
+    },
+  };
+}
+
+/** GVM, axle, payload and tyre checks on the vehicle as finally loaded (hitched, on the slope). */
+function vehicleChecks(s: CheckSettings, ute: UteSpec, total: WheelLoads, hitched: Hitched | null): Check[] {
+  const lim = ute.limits;
+  const front = total.fl + total.fr;
+  const rear = total.rl + total.rr;
+  const gross = front + rear;
+  const checks: Check[] = [
+    limitCheck(s, 'gvm', 'Vehicle', 'Gross vehicle mass (GVM)', gross, lim.gvm, hitched ? `Includes ${kg(hitched.result.netHitch)} carried at the tow ball.` : undefined),
+    limitCheck(s, 'frontAxle', 'Vehicle', 'Front axle', front, lim.frontAxle),
+    limitCheck(s, 'rearAxle', 'Vehicle', 'Rear axle', rear, lim.rearAxle),
+  ];
+  if (lim.kerb) {
+    checks.push(limitCheck(s, 'payload', 'Vehicle', 'Payload (mass above kerb)', gross - lim.kerb, lim.payload, `Current mass ${kg(gross)} minus kerb ${kg(lim.kerb)}.`));
+  }
+  const tyreKg = tyreLoadKg(ute.tyre);
+  for (const w of WHEEL_IDS) {
+    checks.push(limitCheck(s, `tyre_${w}`, 'Tyres', `${WHEEL_NAMES[w]} tyre`, total[w], tyreKg, tyreKg ? tyreBasis(ute.tyre) : 'Enter the tyre load index.'));
+  }
+  return checks;
+}
+
+/**
+ * Towing and trailer checks: capacities and ratings, the plated ATM against what the vehicle may tow,
+ * GCM, the advisory ball share and front axle unloading, then ATM, GTM, the TGALR (each tandem axle
+ * against its half) and the trailer tyres. The order is the order the results panel lists them in.
+ */
+function towingChecks(s: CheckSettings, setup: Setup, ute: UteSpec, cv: CaravanSpec, hitched: Hitched, unhitchedGross: number): Check[] {
+  const { hitch } = setup;
+  const lim = ute.limits;
+  const T = trailerName(cv.kind);
+  const Tc = trailerName(cv.kind, true);
+  const c = hitched.caravan;
+  const h = hitched.result;
+  const B = h.ball;
+  const towCap = cv.hasBrakes ? lim.brakedTow : lim.unbrakedTow;
+  const checks: Check[] = [
+    limitCheck(s, 'towCapacity', 'Towing', `${Tc} mass vs ${cv.hasBrakes ? 'braked' : 'unbraked'} towing capacity`, c.mass, towCap),
+    limitCheck(s, 'towBall', 'Towing', 'Tow ball download', B, lim.towBallMax,
+      hitch.wdh.enabled ? `Static ball weight. With the WDH tensioned the vehicle carries ${kg(h.netHitch)} at the hitch.` : undefined),
+  ];
+  if (hitch.towbarRating) checks.push(limitCheck(s, 'towbarRating', 'Towing', `${Tc} mass vs tow bar rating`, c.mass, hitch.towbarRating));
+  // A plate that allows loading the trailer past what the ute may tow is over, however it is loaded today.
+  const maxTow = minOf(towCap, hitch.towbarRating);
+  const atm = cv.limits.atm;
+  if (atm && maxTow) {
+    const by = maxTow === towCap ? `the vehicle's ${cv.hasBrakes ? 'braked' : 'unbraked'} towing capacity` : 'the tow bar rating';
+    checks.push({
+      id: 'atmVsTow',
+      group: 'Towing',
+      label: `${Tc} ATM vs towing capacity`,
+      value: atm,
+      limit: maxTow,
+      unit: 'kg',
+      status: atm > maxTow ? 'over' : 'ok',
+      detail: atm > maxTow
+        ? `The ${T} is plated for ${kg(atm)}, ${kg(atm - maxTow)} more than ${by} (${kg(maxTow)}). Loaded to its plate it would be over, and some states and insurers require the ATM itself to be within the towing capacity.`
+        : `Within ${by}.`,
+    });
+  }
+  if (hitch.towbarBallRating) checks.push(limitCheck(s, 'towbarBall', 'Towing', 'Ball download vs tow bar rating', B, hitch.towbarBallRating));
+  // GCM counts the vehicle's own mass (unhitched) plus the whole trailer, whatever the ball carries.
+  checks.push(limitCheck(s, 'gcm', 'Towing', 'Gross combination mass (GCM)', unhitchedGross + c.mass, lim.gcm, `Vehicle ${kg(unhitchedGross)} + ${T} ${kg(c.mass)}.`));
+  checks.push({
+    id: 'ballPct',
+    group: 'Towing',
+    label: `Ball weight share of ${T} mass`,
+    value: c.ballPct,
+    limit: s.ballPctMax,
+    min: s.ballPctMin,
+    unit: '%',
+    advisory: true,
+    status: c.ballPct >= s.ballPctMin && c.ballPct <= s.ballPctMax ? 'ok' : 'warn',
+    detail: c.ballPct < s.ballPctMin
+      ? `Below ${pct(s.ballPctMin)} the combination is more prone to sway.`
+      : c.ballPct > s.ballPctMax
+        ? `Above ${pct(s.ballPctMax)} the vehicle's rear is heavily loaded and the front unloaded.`
+        : `Guideline ${pct(s.ballPctMin)}–${pct(s.ballPctMax)}.`,
+  });
+  checks.push({
+    id: 'frontUnload',
+    group: 'Towing',
+    label: 'Front axle unloading when hitched',
+    value: h.frontUnloadPct,
+    limit: s.frontUnloadPct,
+    unit: '%',
+    advisory: true,
+    status: h.frontUnloadPct <= s.frontUnloadPct ? 'ok' : 'warn',
+    detail: `Front axle ${kg(h.frontUnhitched)} → ${kg(h.frontHitched)}${hitch.wdh.enabled ? ` with the WDH restoring ${pct(hitch.wdh.restorePct)}` : ''}. Less weight on the steering axle reduces grip for steering and braking.`,
+  });
+  checks.push(
+    limitCheck(s, 'atm', 'Trailer', `${Tc} mass vs ATM`, c.mass, cv.limits.atm),
+    limitCheck(s, 'gtm', 'Trailer', 'Axle group vs GTM', c.axle, cv.limits.gtm, h.wdhToCaravan > 0 ? `Includes ${kg(h.wdhToCaravan)} moved by the WDH.` : undefined),
+  );
+  // The TGALR rates the whole axle group; identical tandem axles each carry half of it.
+  const n = c.axleLoads.length;
+  const tgalr = cv.limits.tgalr;
+  const noTgalr = 'Enter the TGALR (trailer gross axle load rating) from the compliance plate.';
+  if (n > 1) checks.push(limitCheck(s, 'tgalr', 'Trailer', 'Axle group vs TGALR', c.axle, tgalr, tgalr ? undefined : noTgalr));
+  c.axleLoads.forEach((load, i) => {
+    checks.push(
+      limitCheck(s, `cvAxle_${i}`, 'Trailer', n > 1 ? `${Tc} ${i === 0 ? 'front' : 'rear'} axle` : `${Tc} axle vs TGALR`, load, tgalr ? tgalr / n : null,
+        !tgalr ? noTgalr : n > 1 ? `Its share of the TGALR, assuming identical axles.` : undefined),
+    );
+  });
+  // Each side's share of the group, applied to the heaviest axle, gives the most loaded tyre.
+  const cvTyreKg = tyreLoadKg(cv.tyre);
+  const cvTyreNote = cvTyreKg ? tyreBasis(cv.tyre) : 'Enter the tyre load rating or load index.';
+  const heaviest = Math.max(...c.axleLoads);
+  const sideTyre = (side: number) => (c.axle > 0 ? (heaviest * side) / c.axle : side / n);
+  checks.push(
+    limitCheck(s, 'cvTyre_left', 'Trailer', `${Tc} left tyre${n > 1 ? ' (heaviest)' : ''}`, sideTyre(c.axleLeft), cvTyreKg, cvTyreNote),
+    limitCheck(s, 'cvTyre_right', 'Trailer', `${Tc} right tyre${n > 1 ? ' (heaviest)' : ''}`, sideTyre(c.axleRight), cvTyreKg, cvTyreNote),
+  );
+  return checks;
+}
+
 export interface ComputeOptions {
   /** Road gradient in % (rise over run): positive climbs nose up, negative descends. */
   grade?: number;
@@ -624,12 +955,29 @@ export interface ComputeOptions {
 /** Steepest gradient the model takes, in %. Beyond this nobody is towing anything. */
 export const MAX_GRADE = 60;
 
+/**
+ * Every load, check and data issue for a setup: the one function the UI calls (through
+ * `resultFor`, which caches it per setup and slope).
+ *
+ * The pipeline, in order:
+ * 1. Guard sizes an imported file might set to nonsense (wheelbase, tracks, axle distances), so every
+ *    share stays finite.
+ * 2. Baselines: the vehicle's wheel loads and the trailer's ball and axle loads as weighed, with
+ *    missing readings filled in (`deriveUteBaseline`, `deriveCaravanBaseline`).
+ * 3. Items: what each item adds or takes away on level ground (`itemLoads`).
+ * 4. Slope (`opts.grade`): each mass's weight leans along the road, so a mass at height z acts as if
+ *    z·tan θ further downhill. The vehicle's own mass sits at an assumed centre of mass height
+ *    (`uteCogHeight`), its items at theirs. Loads stay normalised to the masses (cos θ is left out,
+ *    under 2% up to 20%) so they still add up and compare with the level-ground ratings.
+ * 5. Hitching, when towing: ball weight, WDH and the trailer on the slope (`hitchUp`).
+ * 6. Checks against every rating (`vehicleChecks`, `towingChecks`), an info issue describing the
+ *    slope's assumptions, and the headroom figures.
+ *
+ * Nothing is mutated and nothing throws: bad or missing data comes back as `issues`.
+ */
 export function compute(setup: Setup, opts: ComputeOptions = {}): Result {
   const { hitch, settings: s } = setup;
   const grade = Math.min(Math.max(Number.isFinite(opts.grade) ? opts.grade! : 0, -MAX_GRADE), MAX_GRADE);
-  // On a slope each mass's weight leans along the road. Taken in the road's frame, a mass at height z acts like one
-  // z·tan θ further downhill, so its share moves toward the lower axle. Loads stay normalised to the masses (the
-  // slope's cos θ, under 2% up to 20%, is left out) so they still add up and compare with the ratings.
   const tan = grade / 100;
   // The fields never allow sizes this small, but an imported file might: keep the shares finite.
   const ute = { ...setup.ute, wheelbase: atLeast(setup.ute.wheelbase, 1000), trackFront: atLeast(setup.ute.trackFront, 500), trackRear: atLeast(setup.ute.trackRear, 500) };
@@ -640,7 +988,6 @@ export function compute(setup: Setup, opts: ComputeOptions = {}): Result {
     weighedAxles: (setup.caravan.weighedAxles ?? setup.caravan.axles).map((x) => atLeast(x, 300)),
   };
   const T = trailerName(cv.kind);
-  const Tc = trailerName(cv.kind, true);
   const towing = setup.towing;
   const issues: Issue[] = [];
 
@@ -649,147 +996,29 @@ export function compute(setup: Setup, opts: ComputeOptions = {}): Result {
   const cvBase = towing ? deriveCaravanBaseline(setup.caravanReadings, cv, s) : null;
   if (cvBase) issues.push(...cvBase.issues);
 
-  let uteItems = zeroWheels();
-  let cvItems = zeroCaravan();
-  const itemEffects: Record<string, ItemEffect> = {};
-  let ignored = 0;
-  // Sum of mass × height on each host (kg·mm), for the slope. The trailer's is above the tow ball.
-  const uteCog = uteCogHeight(setup.ute);
-  const trailerCog = towing ? caravanCogHeight(cv) : null;
-  let uteHeightMoment = 0;
-  let cvHeightMoment = 0;
-
-  const effectOf = (host: Host, pos: Vec3, mass: number, effect: ItemEffect) => {
-    if (host === 'ute') {
-      effect.ute = addWheels(effect.ute, uteShare(mass, pos, ute));
-      uteHeightMoment += mass * pos.z;
-    } else if (towing) {
-      effect.caravan = addCaravan(effect.caravan, caravanShare(mass, pos, cv));
-      cvHeightMoment += mass * (pos.z - hitch.ballHeight);
-    } else {
-      return false;
-    }
-    return true;
-  };
-
-  for (const item of setup.items) {
-    const effect: ItemEffect = { ute: zeroWheels(), caravan: zeroCaravan() };
-    if (item.mass > 0) {
-      let counted = true;
-      if (item.enabled) counted = effectOf(item.host, item.pos, item.mass, effect) && counted;
-      if (item.measured) counted = effectOf(item.measured.host, item.measured.pos, -item.mass, effect) && counted;
-      if (!counted) ignored++;
-    }
-    itemEffects[item.id] = effect;
-    uteItems = addWheels(uteItems, effect.ute);
-    cvItems = addCaravan(cvItems, effect.caravan);
-  }
-  if (ignored) {
+  const items = itemLoads(setup, ute, cv);
+  if (items.ignored) {
     issues.push({
       level: 'info',
-      message: `${ignored} ${T} item${ignored === 1 ? ' is' : 's are'} ignored because towing is switched off.`,
+      message: `${items.ignored} ${T} item${items.ignored === 1 ? ' is' : 's are'} ignored because towing is switched off.`,
     });
   }
 
-  const level = addWheels(uteBase.wheels, uteItems);
+  // Assumed centre of mass heights of the vehicle and trailer as weighed, for the slope.
+  const uteCog = uteCogHeight(setup.ute);
+  const trailerCog = towing ? caravanCogHeight(cv) : null;
+  const level = addWheels(uteBase.wheels, items.ute);
   const unhitchedGross = level.fl + level.fr + level.rl + level.rr;
   const baseGross = uteBase.wheels.fl + uteBase.wheels.fr + uteBase.wheels.rl + uteBase.wheels.rr;
-  uteHeightMoment += baseGross * uteCog;
   // Climbing moves weight from the front axle to the rear, descending the other way; each side takes half.
-  const uteSlopeShift = (uteHeightMoment * tan) / ute.wheelbase;
-  const shiftWheels = (rearGain: number): WheelLoads => ({ fl: -rearGain / 2, fr: -rearGain / 2, rl: rearGain / 2, rr: rearGain / 2 });
-  let slopeLoads = shiftWheels(uteSlopeShift);
-  const unhitched = addWheels(level, slopeLoads);
+  const uteSlopeShift = ((items.uteHeightMoment + baseGross * uteCog) * tan) / ute.wheelbase;
+  const unhitched = addWheels(level, shiftToRear(uteSlopeShift));
   const frontUnhitched = unhitched.fl + unhitched.fr;
-  let drawbar = 0;
 
-  let hitchLoads = zeroWheels();
-  let caravanResult: CaravanResult | null = null;
-  let hitchResult: HitchResult | null = null;
-
-  if (towing && cvBase) {
-    const own = ownWeightAt(cvBase.loads, cv);
-    const levelLoads = addCaravan(own, cvItems);
-    const mass = levelLoads.ball + levelLoads.left + levelLoads.right;
-    const L = ute.wheelbase;
-    const d = hitch.ballOffset;
-    const a = axleCentre(cv);
-    // The trailer pivots on the ball, so its slope shift is about the ball height. Its brakes are taken as off
-    // (steady speed, rolling resistance and drag ignored): the ball carries its weight along the slope, and that
-    // pull at ball height moves load onto the vehicle's rear axle when climbing and onto the front descending.
-    cvHeightMoment += (cvBase.loads.ball + cvBase.loads.left + cvBase.loads.right) * (trailerCog! - hitch.ballHeight);
-    const slopeToAxles = (cvHeightMoment * tan) / a;
-    const loads = { ball: levelLoads.ball - slopeToAxles, left: levelLoads.left + slopeToAxles / 2, right: levelLoads.right + slopeToAxles / 2 };
-    const B = loads.ball;
-    drawbar = mass * tan;
-    const drawbarShift = (drawbar * hitch.ballHeight) / L;
-    slopeLoads = addWheels(slopeLoads, shiftWheels(drawbarShift));
-
-    if (cv.axles.length === 2) {
-      const spacing = Math.abs(cv.axles[1] - cv.axles[0]);
-      const tyre = tyreDiameter(cv.tyre.size);
-      if (tyre && spacing < tyre + 20) {
-        issues.push({
-          level: 'warn',
-          message: `The ${T} axles are ${mm(spacing)} apart, less than a tyre diameter (${mm(tyre)}): the wheels would touch. Check the axle distances from the tow ball.`,
-          fields: ['caravan.axles.0', 'caravan.axles.1'],
-        });
-      }
-    }
-
-    if (B < 0) {
-      issues.push({
-        level: 'error',
-        message: `The ball weight is negative (${kg(B)}): the ${T} is tail-heavy and lifts the tow ball. This is dangerous; move weight forward.`,
-      });
-    }
-
-    // A WDH couple M at the hitch moves M/L from the rear to the front axle
-    // and M/a from the hitch onto the caravan axles. M is chosen so the front
-    // axle regains the requested share of the load the ball weight took off it.
-    const restore = hitch.wdh.enabled ? Math.min(Math.max(hitch.wdh.restorePct, 0), 150) / 100 : 0;
-    const M = B > 0 ? (restore * B * d * a) / (d + a) : 0;
-    const netHitch = B - M / a;
-    const frontDelta = (-netHitch * d) / L + M / L;
-    const rearDelta = (netHitch * (L + d)) / L - M / L;
-    hitchLoads = { fl: frontDelta / 2, fr: frontDelta / 2, rl: rearDelta / 2, rr: rearDelta / 2 };
-
-    const axleLeft = loads.left + M / a / 2;
-    const axleRight = loads.right + M / a / 2;
-    const groupChange = axleLeft + axleRight - (cvBase.loads.left + cvBase.loads.right);
-    caravanResult = {
-      baseline: cvBase,
-      items: cvItems,
-      loads,
-      mass,
-      axleLeft,
-      axleRight,
-      axle: axleLeft + axleRight,
-      axleLoads: cvBase.axles.map((x) => x + groupChange / cvBase.axles.length),
-      ballPct: mass > 0 ? (B / mass) * 100 : 0,
-      axleMove:
-        own === cvBase.loads
-          ? null
-          : { from: axleCentre({ ...cv, axles: cv.weighedAxles }), to: a, ballBefore: cvBase.loads.ball, ballAfter: own.ball },
-      slopeToAxles,
-    };
-    const frontHitched = frontUnhitched + frontDelta - drawbarShift;
-    hitchResult = {
-      ball: B,
-      wdhMoment: M,
-      netHitch,
-      wdhToCaravan: M / a,
-      frontUnhitched,
-      frontHitched,
-      frontUnloadPct: frontUnhitched > 0 ? ((frontUnhitched - frontHitched) / frontUnhitched) * 100 : 0,
-    };
-    if (hitch.wdh.enabled) {
-      issues.push({
-        level: 'info',
-        message: 'Weight distribution hitch on: check that your vehicle and tow bar manufacturers approve WDH use, and the setting they specify.',
-      });
-    }
-  }
+  const hitched = towing && cvBase ? hitchUp(setup, ute, cv, cvBase, items.caravan, items.caravanHeightMoment, trailerCog!, tan, frontUnhitched, issues) : null;
+  // The slope column in the load table: the vehicle's own lean plus the trailer pulling or pushing on the ball.
+  const slopeLoads = addWheels(shiftToRear(uteSlopeShift), shiftToRear(hitched?.drawbarShift ?? 0));
+  const hitchLoads = hitched?.hitch ?? zeroWheels();
 
   const total = addWheels(addWheels(level, slopeLoads), hitchLoads);
   const front = total.fl + total.fr;
@@ -797,108 +1026,10 @@ export function compute(setup: Setup, opts: ComputeOptions = {}): Result {
   const gross = front + rear;
   const lim = ute.limits;
 
-  const checks: Check[] = [];
-  checks.push(
-    limitCheck(s, 'gvm', 'Vehicle', 'Gross vehicle mass (GVM)', gross, lim.gvm,
-      hitchResult ? `Includes ${kg(hitchResult.netHitch)} carried at the tow ball.` : undefined),
-    limitCheck(s, 'frontAxle', 'Vehicle', 'Front axle', front, lim.frontAxle),
-    limitCheck(s, 'rearAxle', 'Vehicle', 'Rear axle', rear, lim.rearAxle),
-  );
-  if (lim.kerb) {
-    checks.push(limitCheck(s, 'payload', 'Vehicle', 'Payload (mass above kerb)', gross - lim.kerb, lim.payload,
-      `Current mass ${kg(gross)} minus kerb ${kg(lim.kerb)}.`));
-  }
-  const tyreKg = tyreLoadKg(ute.tyre);
-  for (const w of WHEEL_IDS) {
-    checks.push(limitCheck(s, `tyre_${w}`, 'Tyres', `${WHEEL_NAMES[w]} tyre`, total[w], tyreKg,
-      tyreKg ? tyreBasis(ute.tyre) : 'Enter the tyre load index.'));
-  }
+  const checks = vehicleChecks(s, ute, total, hitched);
+  if (hitched) checks.push(...towingChecks(s, setup, ute, cv, hitched, unhitchedGross));
 
-  if (caravanResult && hitchResult) {
-    const c = caravanResult;
-    const B = hitchResult.ball;
-    const towCap = cv.hasBrakes ? lim.brakedTow : lim.unbrakedTow;
-    checks.push(
-      limitCheck(s, 'towCapacity', 'Towing', `${Tc} mass vs ${cv.hasBrakes ? 'braked' : 'unbraked'} towing capacity`, c.mass, towCap),
-      limitCheck(s, 'towBall', 'Towing', 'Tow ball download', B, lim.towBallMax,
-        hitch.wdh.enabled ? `Static ball weight. With the WDH tensioned the vehicle carries ${kg(hitchResult.netHitch)} at the hitch.` : undefined),
-    );
-    if (hitch.towbarRating) checks.push(limitCheck(s, 'towbarRating', 'Towing', `${Tc} mass vs tow bar rating`, c.mass, hitch.towbarRating));
-    // A plate that allows loading the trailer past what the ute may tow is over, however it is loaded today.
-    const maxTow = minOf(towCap, hitch.towbarRating);
-    const atm = cv.limits.atm;
-    if (atm && maxTow) {
-      const by = maxTow === towCap ? `the vehicle's ${cv.hasBrakes ? 'braked' : 'unbraked'} towing capacity` : 'the tow bar rating';
-      checks.push({
-        id: 'atmVsTow',
-        group: 'Towing',
-        label: `${Tc} ATM vs towing capacity`,
-        value: atm,
-        limit: maxTow,
-        unit: 'kg',
-        status: atm > maxTow ? 'over' : 'ok',
-        detail: atm > maxTow
-          ? `The ${T} is plated for ${kg(atm)}, ${kg(atm - maxTow)} more than ${by} (${kg(maxTow)}). Loaded to its plate it would be over, and some states and insurers require the ATM itself to be within the towing capacity.`
-          : `Within ${by}.`,
-      });
-    }
-    if (hitch.towbarBallRating) checks.push(limitCheck(s, 'towbarBall', 'Towing', 'Ball download vs tow bar rating', B, hitch.towbarBallRating));
-    checks.push(limitCheck(s, 'gcm', 'Towing', 'Gross combination mass (GCM)', unhitchedGross + c.mass, lim.gcm,
-      `Vehicle ${kg(unhitchedGross)} + ${T} ${kg(c.mass)}.`));
-    checks.push({
-      id: 'ballPct',
-      group: 'Towing',
-      label: `Ball weight share of ${T} mass`,
-      value: c.ballPct,
-      limit: s.ballPctMax,
-      min: s.ballPctMin,
-      unit: '%',
-      advisory: true,
-      status: c.ballPct >= s.ballPctMin && c.ballPct <= s.ballPctMax ? 'ok' : 'warn',
-      detail: c.ballPct < s.ballPctMin
-        ? `Below ${pct(s.ballPctMin)} the combination is more prone to sway.`
-        : c.ballPct > s.ballPctMax
-          ? `Above ${pct(s.ballPctMax)} the vehicle's rear is heavily loaded and the front unloaded.`
-          : `Guideline ${pct(s.ballPctMin)}–${pct(s.ballPctMax)}.`,
-    });
-    checks.push({
-      id: 'frontUnload',
-      group: 'Towing',
-      label: 'Front axle unloading when hitched',
-      value: hitchResult.frontUnloadPct,
-      limit: s.frontUnloadPct,
-      unit: '%',
-      advisory: true,
-      status: hitchResult.frontUnloadPct <= s.frontUnloadPct ? 'ok' : 'warn',
-      detail: `Front axle ${kg(hitchResult.frontUnhitched)} → ${kg(hitchResult.frontHitched)}${hitch.wdh.enabled ? ` with the WDH restoring ${pct(hitch.wdh.restorePct)}` : ''}. Less weight on the steering axle reduces grip for steering and braking.`,
-    });
-    checks.push(
-      limitCheck(s, 'atm', 'Trailer', `${Tc} mass vs ATM`, c.mass, cv.limits.atm),
-      limitCheck(s, 'gtm', 'Trailer', 'Axle group vs GTM', c.axle, cv.limits.gtm,
-        hitchResult.wdhToCaravan > 0 ? `Includes ${kg(hitchResult.wdhToCaravan)} moved by the WDH.` : undefined),
-    );
-    // The TGALR rates the whole axle group; identical tandem axles each carry half of it.
-    const n = c.axleLoads.length;
-    const tgalr = cv.limits.tgalr;
-    const noTgalr = 'Enter the TGALR (trailer gross axle load rating) from the compliance plate.';
-    if (n > 1) checks.push(limitCheck(s, 'tgalr', 'Trailer', 'Axle group vs TGALR', c.axle, tgalr, tgalr ? undefined : noTgalr));
-    c.axleLoads.forEach((load, i) => {
-      checks.push(
-        limitCheck(s, `cvAxle_${i}`, 'Trailer', n > 1 ? `${Tc} ${i === 0 ? 'front' : 'rear'} axle` : `${Tc} axle vs TGALR`, load, tgalr ? tgalr / n : null,
-          !tgalr ? noTgalr : n > 1 ? `Its share of the TGALR, assuming identical axles.` : undefined),
-      );
-    });
-    // Each side's share of the group, applied to the heaviest axle, gives the most loaded tyre.
-    const cvTyreKg = tyreLoadKg(cv.tyre);
-    const cvTyreNote = cvTyreKg ? tyreBasis(cv.tyre) : 'Enter the tyre load rating or load index.';
-    const heaviest = Math.max(...c.axleLoads);
-    const sideTyre = (side: number) => (c.axle > 0 ? (heaviest * side) / c.axle : side / n);
-    checks.push(
-      limitCheck(s, 'cvTyre_left', 'Trailer', `${Tc} left tyre${n > 1 ? ' (heaviest)' : ''}`, sideTyre(c.axleLeft), cvTyreKg, cvTyreNote),
-      limitCheck(s, 'cvTyre_right', 'Trailer', `${Tc} right tyre${n > 1 ? ' (heaviest)' : ''}`, sideTyre(c.axleRight), cvTyreKg, cvTyreNote),
-    );
-  }
-
+  // The heaviest trailer the vehicle could tow as loaded: the lowest of its capacity, GCM room and tow bar rating.
   const towCap = cv.hasBrakes ? lim.brakedTow : lim.unbrakedTow;
   const gcmRoom = lim.gcm ? lim.gcm - unhitchedGross : null;
   const maxCaravan = minOf(towCap, gcmRoom, hitch.towbarRating);
@@ -920,10 +1051,10 @@ export function compute(setup: Setup, opts: ComputeOptions = {}): Result {
   }
 
   return {
-    slope: { grade, degrees: (Math.atan(tan) * 180) / Math.PI, uteCog, trailerCog, drawbar },
+    slope: { grade, degrees: (Math.atan(tan) * 180) / Math.PI, uteCog, trailerCog, drawbar: hitched?.drawbar ?? 0 },
     ute: {
       baseline: uteBase,
-      items: uteItems,
+      items: items.ute,
       hitch: hitchLoads,
       unhitched,
       slope: slopeLoads,
@@ -933,18 +1064,18 @@ export function compute(setup: Setup, opts: ComputeOptions = {}): Result {
       gross,
       unhitchedGross,
     },
-    caravan: caravanResult,
-    hitch: hitchResult,
+    caravan: hitched?.caravan ?? null,
+    hitch: hitched?.result ?? null,
     checks,
     issues,
-    itemEffects,
+    itemEffects: items.effects,
     headroom: {
       gvm: lim.gvm ? lim.gvm - gross : null,
       frontAxle: lim.frontAxle ? lim.frontAxle - front : null,
       rearAxle: lim.rearAxle ? lim.rearAxle - rear : null,
       maxCaravan,
       maxCaravanBy,
-      gcm: lim.gcm && caravanResult ? lim.gcm - unhitchedGross - caravanResult.mass : null,
+      gcm: lim.gcm && hitched ? lim.gcm - unhitchedGross - hitched.caravan.mass : null,
     },
   };
 }

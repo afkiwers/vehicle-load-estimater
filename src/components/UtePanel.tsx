@@ -51,6 +51,12 @@ function TopView({ suv, van }: { suv: boolean; van: boolean }) {
   );
 }
 
+/**
+ * The Vehicle tab: make and model (changing either loads that model's figures through
+ * `applyVehicle`, keeping readings, items and paint), weighbridge readings with derived values in
+ * grey, manufacturer limits, tyres, appearance and dimensions. The dimension fields shown depend on
+ * the body style (tub, SUV cargo floor or van cargo area).
+ */
 export function UtePanel() {
   const setup = useSetup();
   const result = useResult();

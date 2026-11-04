@@ -71,26 +71,6 @@ export function Block({ b, host = 'ute', offset = 0, surface = null, shadow = tr
   );
 }
 
-/**
- * Extrudes a side profile given as (x, z) points in a host frame (mm) across
- * the vehicle width, centred on the centreline.
- */
-export function useProfile(points: [number, number][], widthMm: number, host: Host = 'ute', offset = 0) {
-  return useMemo(() => {
-    const shape = new THREE.Shape(
-      points.map(([x, z]) => {
-        const [wx, wy] = toWorld(host, { x, y: 0, z }, offset);
-        return new THREE.Vector2(wx, wy);
-      }),
-    );
-    const geo = new THREE.ExtrudeGeometry(shape, { depth: widthMm / 1000, bevelEnabled: false, curveSegments: 20 });
-    geo.translate(0, 0, -widthMm / 2000);
-    geo.computeVertexNormals();
-    return geo;
-    // Points are rebuilt every render; their JSON is a cheap, stable key.
-  }, [JSON.stringify(points), widthMm, host, offset]);
-}
-
 /** Points along a wheel arch, from the rear intersection with z = zLine over the top to the front one. */
 export function archPoints(cx: number, cz: number, r: number, zLine: number, steps = 18): [number, number][] {
   const dz = zLine - cz;

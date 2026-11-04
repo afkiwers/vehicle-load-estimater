@@ -1,17 +1,33 @@
-// Dual-cab utes, SUVs and vans as sold in Australia: the GWM Cannon and Cannon Alpha, the
-// Isuzu D-MAX and the Isuzu MU-X, the 2009 Toyota HiAce LWB van, plus a generic ute and car
-// for any other make.
+// Every vehicle model in the picker: utes, SUVs and vans sold in Australia, plus a generic ute and
+// car for any other make. Picking a model copies its figures into the setup (`applyVehicle` in
+// presets.ts); after that the setup holds its own copy, which the person can edit.
 //
-// The current GWM range comes from GWM Australia's brochures (Cannon Alpha, current at
-// 14/10/2026; Cannon, 16/10/2026). Earlier GWM models are no longer in a brochure; their
-// kerb weight, GVM, GCM, payload and towing come from Australian spec listings
-// (CarExpert, carsales, Drive, CarsGuide, 4X4 Australia). The Isuzus come from Isuzu UTE
-// Australia's 25.5MY D-MAX and MU-X brochures. The 2009 HiAce figures come from Australian
-// spec listings (GoAuto, CarsGuide, carsales); Toyota's axle ratings and tow ball download
-// for it are not in them.
+// How the list is built:
+// - Each model is a `Def`: its make group, name, body (`Body`: dimensions, tub, kerb weight split,
+//   body style) and limits (`UteLimits`: GVM, GCM, axle ratings, kerb, tare, payload, towing, tow
+//   ball), plus tyre size and load index.
+// - Payload is always GVM less kerb weight, and tare less than or equal to kerb (equal for electric
+//   vehicles, which carry no fuel); vehicles.test.ts checks every model for this and that the axle
+//   ratings together allow the GVM.
+// - Figures that are typical rather than published become placeholders in the app: the paths in
+//   the make's `UNPUBLISHED` list apply to all its models, and each `Def.typical` adds its own.
+// - Ranges with many variants are generated from one helper per family (`ranger`, `f150`, `hilux`,
+//   `listed` for the makes taken from CarExpert's spec pages), so a family shares its body and only
+//   the published differences are spelt out per variant.
+// - `VEHICLES` lists them all; the picker shows them by make (`VEHICLE_MAKES`) and, within a make, by
+//   group (`VEHICLE_GROUPS`).
 //
-// Each model lists the setup paths that hold typical rather than published values, so
-// the app marks them as placeholders to check against the vehicle's placard.
+// To add a model: add a `Def` (or a call to the family's helper) to the make's list, its group to
+// `VehicleGroup` and `VEHICLE_GROUPS`, and, for a new make, its `UNPUBLISHED` entry, `VehicleMake`,
+// `MAKE`, `VEHICLE_MAKES`, the name prefix stripped in `VEHICLES` and the make list in `makeOf`.
+// Every section below names its sources; check new figures against the maker's spec sheet.
+//
+// Sources by make: GWM's current range from GWM Australia's brochures (Cannon Alpha 14/10/2026,
+// Cannon 16/10/2026), earlier GWM models from Australian spec listings; Isuzu from Isuzu UTE
+// Australia's 25.5MY brochures; the 2009 HiAce from GoAuto, CarsGuide and carsales; Ford, BYD,
+// Toyota's HiLux and Tundra, JAC, Kia, LDV, Mazda, MG, Mitsubishi, Nissan, RAM and Chevrolet from
+// CarExpert's specification pages for the current model year (BYD's Shark 6 GCM and tow ball from
+// BYD Australia's press material).
 
 import type { UteLimits, UteSpec } from './types';
 

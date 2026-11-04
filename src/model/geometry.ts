@@ -1,6 +1,12 @@
-// Derived body geometry for the generic ute, SUV and caravan, shared by the 3D view
-// and the default item placements. Proportions are generic dual-cab and five-seat
-// SUV ones, scaled to the entered dimensions.
+// Derived body geometry for the generic ute, SUV, van and trailer, shared by the 3D view
+// and the default item placements. Proportions are generic dual-cab, five-seat SUV and
+// cab-over van ones, scaled to the entered dimensions.
+//
+// Two coordinate systems meet here. Models, items and the load maths work in a host frame
+// (mm): x rearward from the front axle (vehicle) or the tow ball (trailer), y to the right,
+// z up from the ground. three.js works in world space (m): +X forward, +Y up, +Z right, with
+// the vehicle's front axle at the origin and the trailer `caravanOffset` behind it.
+// `toWorld` / `fromWorld` convert between them; everything else stays in host millimetres.
 
 import type { CaravanSpec, HitchSpec, Host, ItemSize, Placement, Setup, UteSpec, Vec3 } from './types';
 import { rimDiameter, tyreDiameter, tyreWidth } from './tyres';
@@ -52,6 +58,18 @@ export function rearOverhang(ute: Pick<UteSpec, 'overallLength' | 'wheelbase' | 
   return Math.max(400, ute.overallLength - ute.wheelbase - ute.frontOverhang);
 }
 
+/**
+ * Where everything on the vehicle body sits, from its few entered dimensions: the stations and
+ * heights the 3D body is lofted through (bonnet, cowl, beltline, roof, windscreen, pillars), the
+ * tub or cargo floor, wheel and seat positions and the tow ball. The 3D models, the default item
+ * placements (`anchorPlacement`) and seat snapping all read it, so changing a proportion here moves
+ * both the drawing and where items land.
+ *
+ * Heights are fractions of the overall height and stations fractions of the overall length, tuned
+ * to look like a modern dual cab ute or five-seat SUV; they are not measured from any one model.
+ * Only the wheelbase, track, overhang, tub and tow ball position matter to the load calculation.
+ * Vans take their own geometry (`vanGeometry`).
+ */
 export function uteGeometry(ute: UteSpec, hitch: HitchSpec): UteGeometry {
   if (ute.bodyStyle === 'van') return vanGeometry(ute, hitch);
   const suv = ute.bodyStyle === 'suv';
@@ -271,18 +289,22 @@ export function caravanOffset(setup: Pick<Setup, 'ute' | 'hitch'>): number {
   return setup.ute.wheelbase + setup.hitch.ballOffset;
 }
 
-// World space (three.js, metres): +X forward, +Y up, +Z right.
+// World space (three.js, metres): +X forward, +Y up, +Z right. The host frames run rearward, so x
+// flips sign, and y/z swap because three.js is y-up.
 
+/** A host-frame point (mm) in world space (m); `offset` is `caravanOffset`, used for the trailer only. */
 export function toWorld(host: Host, p: Vec3, offset: number): [number, number, number] {
   const s = host === 'ute' ? p.x : offset + p.x;
   return [-s / 1000, p.z / 1000, p.y / 1000];
 }
 
+/** The inverse of `toWorld`: a world-space point (m) in the host frame (mm). */
 export function fromWorld(host: Host, w: { x: number; y: number; z: number }, offset: number): Vec3 {
   const s = -w.x * 1000;
   return { x: host === 'ute' ? s : s - offset, y: w.z * 1000, z: w.y * 1000 };
 }
 
+/** A world-space direction (e.g. a surface normal) in the host frame's axes; no offset or scale. */
 export function dirFromWorld(n: { x: number; y: number; z: number }): Vec3 {
   return { x: -n.x, y: n.z, z: n.y };
 }
@@ -296,6 +318,7 @@ export function restOnSurface(point: Vec3, normal: Vec3, size: ItemSize): Vec3 {
   };
 }
 
+/** The seat nearest to a point in plan view (height ignored); people snap to it when dropped. */
 export function nearestSeat(seats: Vec3[], p: Vec3): Vec3 {
   let best = seats[0];
   let bestD = Infinity;
@@ -330,29 +353,6 @@ export type Anchor =
   | 'cvBoat'
   | 'cvTransom'
   | 'cvBoatInside';
-
-export const ANCHOR_HOST: Record<Anchor, Host> = {
-  bullbar: 'ute',
-  frontBumper: 'ute',
-  roof: 'ute',
-  tub: 'ute',
-  tubFront: 'ute',
-  tubRear: 'ute',
-  underTub: 'ute',
-  seat: 'ute',
-  towbar: 'ute',
-  hitch: 'ute',
-  cvDrawbar: 'caravan',
-  cvFloorFront: 'caravan',
-  cvFloorCentre: 'caravan',
-  cvFloorRear: 'caravan',
-  cvUnderFloor: 'caravan',
-  cvRearBumper: 'caravan',
-  cvRoof: 'caravan',
-  cvBoat: 'caravan',
-  cvTransom: 'caravan',
-  cvBoatInside: 'caravan',
-};
 
 /** Share of a boat hull's height that is solid below the cockpit floor (also used by the 3D hull). */
 export const BOAT_FLOOR = 0.35;

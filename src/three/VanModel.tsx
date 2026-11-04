@@ -113,6 +113,11 @@ function Interior({ g, m }: { g: G; m: Materials }) {
   );
 }
 
+/**
+ * The whole van: body, glazing, lights, bumpers, mirrors, door lines (a sliding door on the kerb side),
+ * roof drop surface, interior and cargo floor, underbody, tow bar and wheels. Glass and trim sit just
+ * outside the body's rounded edge (EDGE), which grows the body past its outline.
+ */
 export function VanModel({ ute, hitch, xray }: { ute: UteSpec; hitch: HitchSpec; xray: boolean }) {
   const g = useMemo(() => uteGeometry(ute, hitch), [ute, hitch]);
   const archR = g.wheelR + 50;

@@ -74,6 +74,7 @@ function CheckRow({ c }: { c: Check }) {
 
 const GROUPS: CheckGroup[] = ['Vehicle', 'Tyres', 'Towing', 'Trailer'];
 
+/** The one-line verdict at the top of the results: the worst check status, raised by readings that look wrong. */
 export function Headline() {
   const result = useResult();
   const status = overallStatus(result);
@@ -115,6 +116,11 @@ export function Headline() {
   );
 }
 
+/**
+ * Where each wheel's load comes from: the weighed baseline, then items, the slope and hitching added
+ * on, columns summing to the total. A second table does the same for the trailer's ball, sides and
+ * axles (baseline, items, slope, WDH). Columns for the slope and hitch only appear when they apply.
+ */
 function LoadTable() {
   const setup = useSetup();
   const r = useResult();

@@ -1,3 +1,12 @@
+// The load items in 3D: one mesh per item in its host frame, the drop preview while dragging from the
+// palette, and a wireframe "weighed here" ghost for a selected item moved since weighing. Item shapes
+// are drawn to fill the item's box (l × w × h, centred on its position), because that box is what
+// stacking, drops and the load maths use; the boat is the exception, with its tower and windscreen
+// above the box.
+//
+// Picking: meshes carry `userData` ({ surface, host, itemId }) that Interaction.tsx reads to know what
+// was hit. People carry no surface, so nothing can be stacked on them.
+
 import { useEffect, useMemo, type RefObject } from 'react';
 import * as THREE from 'three';
 import { Edges, Html, RoundedBox } from '@react-three/drei';
@@ -438,6 +447,7 @@ function Outboard({ size, color, opacity, outline, userData, events }: Omit<Shap
   );
 }
 
+/** The mesh for an item shape, sized to the item's box (metres, centred on the item's position). */
 export function ItemShapeMesh({ shape, size, color, opacity, outline, userData, ...events }: ShapeProps) {
   const l = size.l / 1000;
   const w = size.w / 1000;
@@ -519,6 +529,10 @@ export function ItemShapeMesh({ shape, size, color, opacity, outline, userData, 
   );
 }
 
+/**
+ * One item. Pressing it selects it and starts a drag: orbiting is switched off and Interaction.tsx
+ * moves the item with the pointer until it is released. Disabled items are drawn faint.
+ */
 function ItemMesh({ item, offset, selected }: { item: LoadItem; offset: number; selected: boolean }) {
   const controls = useThree((s) => s.controls) as unknown as { enabled: boolean } | null;
   const onPointerDown = (e: ThreeEvent<PointerEvent>) => {
@@ -553,6 +567,7 @@ function ItemMesh({ item, offset, selected }: { item: LoadItem; offset: number; 
   );
 }
 
+/** Where the selected item was when weighed, if it has moved since: what its effect is measured against. */
 function MeasuredGhost({ item, offset }: { item: LoadItem; offset: number }) {
   const m = item.measured;
   if (!m) return null;
@@ -585,6 +600,7 @@ export function Items({ items, offset }: { items: LoadItem[]; offset: number }) 
   );
 }
 
+/** The item being dragged from the palette, shown where it would land. */
 export function DropGhost({ offset }: { offset: number }) {
   const p = useUi((s) => s.dropPreview);
   if (!p) return null;

@@ -164,8 +164,23 @@ interface WheelGeo {
   caliper: THREE.BufferGeometry | null;
 }
 
+/**
+ * Wheel geometries by size and style. Every wheel of a vehicle or trailer shares one set, and they
+ * are kept for the page's lifetime rather than disposed: only a handful of sizes ever appear, and
+ * rebuilding the tread (hundreds of merged boxes) on each edit would be slow.
+ */
 const wheelCache = new Map<string, WheelGeo>();
 
+/**
+ * One wheel's parts, in metres, centred on the axle with the outer face towards +z (the `Wheel`
+ * component turns it to face outward on either side):
+ * - the tyre, a rounded-shoulder cross-section revolved round the axle (`LatheGeometry`), with
+ *   blocky tread lugs for the all-terrain style;
+ * - the rim: an open barrel, spokes (10 thin for all-terrain, 5 wide for highway), a machined strip
+ *   on each spoke and a lip, merged so each material is one draw call;
+ * - the hub with cap and wheel nuts, the brake disc, and a caliper for the all-terrain style.
+ * Results are cached by size and style (see `wheelCache`).
+ */
 function wheelGeometry(R: number, W: number, rimR: number, style: WheelStyle): WheelGeo {
   const key = [R, W, rimR, style].map((v) => (typeof v === 'number' ? v.toFixed(4) : v)).join('|');
   const hit = wheelCache.get(key);

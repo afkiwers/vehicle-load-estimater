@@ -1,3 +1,12 @@
+// The app's saved state: every setup, which one is open, custom item templates, and undo history
+// for the open setup. It is persisted to the browser's localStorage (zustand `persist`) under
+// STORAGE_KEY, together with the version of the app that saved it and the pre-upgrade backup
+// (see model/versions.ts and state/versioning.ts).
+//
+// Setups are never mutated in place: every edit replaces the setup object (`update` clones it),
+// which is what lets `resultFor` cache results per setup object and React re-render on change.
+// UI-only state (selected item, tab, view, slope) lives in state/ui.ts and is not saved.
+
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import type { Setup } from '../model/types';
@@ -120,6 +129,12 @@ export const useStore = create<AppState>()(
       customTemplates: [],
       history: emptyHistory(),
 
+      /**
+       * The one way setups change. `fn` edits a clone of the open setup, which then replaces it.
+       * Undo: unless `opts.history` is false (intermediate drag moves), the previous setup is pushed
+       * onto the undo stack. Edits sharing a string key within COALESCE_MS (typing in one field)
+       * share one undo step instead of one per keystroke. Any new edit clears redo.
+       */
       update: (fn, opts = {}) => {
         const { setups, activeId, history } = get();
         const current = setups[activeId];
@@ -265,6 +280,8 @@ export const useStore = create<AppState>()(
         activeId: st.activeId,
         customTemplates: st.customTemplates,
       }),
+      // Loading what was saved: setups are normalised (fields added since filled in, nonsense sizes
+      // replaced, see normalizeSetup) and anything unreadable falls back to a fresh first setup.
       merge: (persisted, current) => {
         const p = persisted as Partial<AppState> | undefined;
         if (!p?.setups || !p.order?.length) return current;

@@ -1,3 +1,8 @@
+// The towed trailer in 3D: a shared chassis (drawbar or tongue, rails, leaf-sprung axles, wheels,
+// mudguards) and a body per type: caravan, enclosed, open (box) trailer, or boat trailer bunks. All of
+// it is drawn in the trailer's host frame (x behind the tow ball) and placed `offset` behind the
+// vehicle's front axle. In x-ray mode closed bodies turn into faint ghosts so items inside can be placed.
+
 import { useEffect, useMemo } from 'react';
 import { RoundedBox } from '@react-three/drei';
 import * as THREE from 'three';

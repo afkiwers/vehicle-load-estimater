@@ -21,7 +21,7 @@ function download(name: string, text: string) {
 }
 
 /** The setups in an exported file, and the version that saved them (null for files from before files carried it). */
-export function parseImport(text: string): { setups: Setup[]; version: string | null } {
+function parseImport(text: string): { setups: Setup[]; version: string | null } {
   const data = JSON.parse(text);
   if (Array.isArray(data)) return { setups: data, version: null };
   const version = typeof data?.appVersion === 'string' ? data.appVersion : null;
@@ -40,6 +40,11 @@ export function printReport() {
   });
 }
 
+/**
+ * The bar across the top: setup picker and rename, new/duplicate/delete, undo/redo, share, export and
+ * import (files carry the settings' version; older ones are upgraded on import, newer ones refused),
+ * the printable report, and the version button that opens About.
+ */
 export function TopBar() {
   const { setups, order, activeId, dataVersion, selectSetup, createSetup, duplicateSetup, renameSetup, deleteSetup, importSetups, undo, redo } = useStore();
   const canUndo = useStore((s) => s.history.past.length > 0);
