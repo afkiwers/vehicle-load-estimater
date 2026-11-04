@@ -160,4 +160,18 @@ describe('vehicle models', () => {
     expect(vehicleModel('ranger-xlt-v6').placeholders).not.toContain('ute.limits.frontAxle');
     expect(vehicleModel('sealion6-premium').placeholders).toEqual(expect.arrayContaining(['ute.limits.gcm', 'ute.limits.rearAxle']));
   });
+
+  it('has the HiLux and Tundra under Toyota, next to the HiAce', () => {
+    expect(vehicleModel('hilux-sr5-4x4')).toMatchObject({ make: 'Toyota', group: 'Toyota HiLux' });
+    expect(vehicleModel('hilux-sr5-4x4').spec()).toMatchObject({ wheelbase: 3085, trackFront: 1530, limits: { gvm: 3120, gcm: 6300, kerb: 2163, tare: 2103, payload: 957, brakedTow: 3500 } });
+    // The 4x2s' axle ratings are published; the 4x4s' are not.
+    expect(vehicleModel('hilux-sr-4x2').spec().limits).toMatchObject({ frontAxle: 1480, rearAxle: 1700, brakedTow: 2900 });
+    expect(vehicleModel('hilux-sr-4x2').placeholders).not.toContain('ute.limits.frontAxle');
+    expect(vehicleModel('hilux-rogue').placeholders).toContain('ute.limits.frontAxle');
+    // The electric HiLux carries no fuel.
+    expect(vehicleModel('hilux-sr-electric').spec().limits).toMatchObject({ kerb: 2420, tare: 2420, brakedTow: 2000 });
+    expect(vehicleModel('tundra-platinum').spec()).toMatchObject({ wheelbase: 3700, limits: { gvm: 3536, frontAxle: 1850, brakedTow: 4500 } });
+    // The HiAce keeps its own placeholders.
+    expect(vehicleModel('hiace-lwb-30d-2009').placeholders).toEqual(expect.arrayContaining(['ute.limits.frontAxle', 'ute.trackFront']));
+  });
 });

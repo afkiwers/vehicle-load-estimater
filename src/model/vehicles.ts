@@ -25,6 +25,8 @@ export type VehicleGroup =
   | 'Earlier GWM models'
   | 'Isuzu D-MAX'
   | 'Isuzu MU-X'
+  | 'Toyota HiLux'
+  | 'Toyota Tundra'
   | 'Toyota HiAce'
   | 'Other makes';
 
@@ -50,20 +52,7 @@ const UNPUBLISHED = {
   BYD: ['ute.tub.length', 'ute.tub.width', 'ute.tub.depth', 'ute.tub.floorHeight', 'ute.kerbFrontPct'],
   GWM: ['ute.trackFront', 'ute.trackRear', 'ute.frontOverhang', 'ute.tub.floorHeight'],
   Isuzu: ['ute.tub.floorHeight', 'ute.kerbFrontPct'],
-  Toyota: [
-    'ute.trackFront',
-    'ute.trackRear',
-    'ute.frontOverhang',
-    'ute.tub.length',
-    'ute.tub.width',
-    'ute.tub.depth',
-    'ute.tub.floorHeight',
-    'ute.kerbFrontPct',
-    'ute.tyre.loadIndex',
-    'ute.limits.frontAxle',
-    'ute.limits.rearAxle',
-    'ute.limits.towBallMax',
-  ],
+  Toyota: ['ute.tub.length', 'ute.tub.width', 'ute.tub.depth', 'ute.tub.floorHeight', 'ute.kerbFrontPct'],
   Generic: [],
 };
 const TUB = ['ute.tub.length', 'ute.tub.width', 'ute.tub.depth'];
@@ -519,35 +508,6 @@ const hiaceLimits = (kerb: number, tare: number, gcm: number): UteLimits => ({
   towBallMax: 140,
 });
 
-const TOYOTA: Def[] = [
-  {
-    id: 'hiace-lwb-27p-2009',
-    group: 'Toyota HiAce',
-    name: 'Toyota HiAce LWB van 2.7L petrol',
-    years: '2009',
-    body: HIACE,
-    limits: hiaceLimits(1665, 1620, 4200),
-    tyre: HIACE_TYRE,
-    typical: ['ute.limits.gcm', 'ute.limits.unbrakedTow'],
-  },
-  {
-    id: 'hiace-lwb-30d-2009',
-    group: 'Toyota HiAce',
-    name: 'Toyota HiAce LWB van 3.0L diesel',
-    years: '2009',
-    body: HIACE,
-    limits: hiaceLimits(1905, 1855, 3800),
-    tyre: HIACE_TYRE,
-    typical: ['ute.limits.kerb', 'ute.limits.tare', 'ute.limits.payload', 'ute.limits.gcm'],
-  },
-];
-
-// Ford utes in Australia: every Ranger dual cab pick-up, and the remanufactured right-hand drive
-// F-150. Figures are CarExpert's specification pages for the current model year (dated 1 September
-// 2026): kerb and tare weight, GVM, GCM, payload, both axle ratings, towing, dimensions, track,
-// front overhang and tyres are as published there. Ford does not publish the tow ball download on
-// those pages, so it is typical, as are the tub and the kerb weight split.
-type Size = { L: number; W: number; H: number; track: [number, number]; fo: number; floor: number };
 /** [GVM, GCM, front axle, rear axle, kerb, tare, braked tow, unbraked tow, tow ball] in kg. */
 type Ratings = [number, number, number, number, number, number, number, number, number];
 
@@ -564,6 +524,99 @@ const ratings = ([gvm, gcm, frontAxle, rearAxle, kerb, tare, brakedTow, unbraked
   towBallMax,
 });
 
+/** The 2009 HiAce figures not in the listings it comes from. */
+const HIACE_TYPICAL = ['ute.trackFront', 'ute.trackRear', 'ute.frontOverhang', 'ute.tyre.loadIndex', 'ute.limits.frontAxle', 'ute.limits.rearAxle', 'ute.limits.towBallMax'];
+
+// Toyota utes in Australia: every HiLux dual cab pick-up, including the electric SR and SR5, and the
+// remanufactured right-hand drive Tundra. Figures are CarExpert's specification pages for the current
+// model year: kerb and tare weight, GVM, GCM, payload, towing, dimensions, track, front overhang and
+// tyres as published, with the axle ratings where given (the 4x2s and the Tundra). Toyota's tow ball
+// download is not on those pages, so it is typical (a tenth of the braked towing), as are the other
+// axle ratings, the electric HiLux's and the Tundra's GCM, and the tub and kerb weight split.
+const hilux = (id: string, grade: string, z: { W: number; H: number; track: [number, number]; fo: number }, r: Ratings, tyre: Def['tyre'], typical: string[]): Def => ({
+  id,
+  group: 'Toyota HiLux',
+  name: `Toyota HiLux ${grade}`,
+  body: {
+    bodyStyle: 'ute',
+    wheelbase: 3085,
+    trackFront: z.track[0],
+    trackRear: z.track[1],
+    overallLength: 5320,
+    overallWidth: z.W,
+    overallHeight: z.H,
+    frontOverhang: z.fo,
+    tub: { length: 1555, width: 1540, depth: 480, floorHeight: 850 },
+    kerbFrontPct: 57,
+  },
+  limits: ratings(r),
+  tyre,
+  typical,
+});
+
+const tundra = (id: string, grade: string): Def => ({
+  id,
+  group: 'Toyota Tundra',
+  name: `Toyota Tundra ${grade}`,
+  body: {
+    bodyStyle: 'ute',
+    wheelbase: 3700,
+    trackFront: 1737,
+    trackRear: 1737,
+    overallLength: 5955,
+    overallWidth: 2040,
+    overallHeight: 1985,
+    frontOverhang: 990,
+    tub: { length: 1670, width: 1600, depth: 530, floorHeight: 950 },
+    kerbFrontPct: 56,
+  },
+  // CarExpert: kerb 2,778, tare 2,694, GVM 3,536 kg, axles 1,850 kg each, 4,500 kg braked. No GCM.
+  limits: ratings([3536, 8000, 1850, 1850, 2778, 2694, 4500, 750, 450]),
+  tyre: { size: '265/60R20', loadIndex: 115 },
+  typical: ['ute.limits.gcm', 'ute.limits.towBallMax', 'ute.frontOverhang', 'ute.tyre.loadIndex'],
+});
+
+const TOYOTA: Def[] = [
+  hilux('hilux-workmate-4x2', 'WorkMate 2.8L diesel 4x2', { W: 1855, H: 1865, track: [1530, 1550], fo: 990 }, [2980, 5870, 1480, 1700, 2035, 1976, 2900, 750, 290], { size: '265/65R17', loadIndex: 112 }, ['ute.limits.towBallMax']),
+  hilux('hilux-workmate-4x4', 'WorkMate 2.8L diesel 4x4', { W: 1855, H: 1875, track: [1530, 1550], fo: 990 }, [3500, 6300, 1600, 2050, 2105, 2045, 3500, 750, 350], { size: '265/65R17', loadIndex: 112 }, ['ute.limits.frontAxle', 'ute.limits.rearAxle', 'ute.limits.towBallMax']),
+  hilux('hilux-sr-4x2', 'SR 2.8L diesel 4x2', { W: 1855, H: 1865, track: [1530, 1550], fo: 990 }, [2980, 5880, 1480, 1700, 2045, 1986, 2900, 750, 290], { size: '265/65R17', loadIndex: 112 }, ['ute.limits.towBallMax']),
+  hilux('hilux-sr-4x4', 'SR 2.8L diesel 4x4', { W: 1855, H: 1875, track: [1530, 1550], fo: 990 }, [3500, 6300, 1600, 2050, 2125, 2065, 3500, 750, 350], { size: '265/65R17', loadIndex: 112 }, ['ute.limits.frontAxle', 'ute.limits.rearAxle', 'ute.limits.towBallMax']),
+  hilux('hilux-sr-electric', 'SR electric', { W: 1855, H: 1845, track: [1530, 1550], fo: 990 }, [3145, 5145, 1500, 1900, 2420, 2420, 2000, 750, 200], { size: '265/65R17', loadIndex: 112 }, ['ute.limits.frontAxle', 'ute.limits.rearAxle', 'ute.limits.towBallMax', 'ute.limits.gcm', 'ute.tyre.loadIndex']),
+  hilux('hilux-sr5-4x4', 'SR5 2.8L diesel 4x4', { W: 1885, H: 1870, track: [1530, 1555], fo: 990 }, [3120, 6300, 1500, 1900, 2163, 2103, 3500, 750, 350], { size: '265/60R18', loadIndex: 110 }, ['ute.limits.frontAxle', 'ute.limits.rearAxle', 'ute.limits.towBallMax']),
+  hilux('hilux-sr5-4x4-manual', 'SR5 2.8L diesel 4x4 manual', { W: 1885, H: 1865, track: [1530, 1555], fo: 990 }, [3080, 6300, 1500, 1900, 2110, 2051, 3500, 750, 350], { size: '265/60R18', loadIndex: 110 }, ['ute.limits.frontAxle', 'ute.limits.rearAxle', 'ute.limits.towBallMax']),
+  hilux('hilux-sr5-electric', 'SR5 electric', { W: 1855, H: 1845, track: [1530, 1550], fo: 990 }, [3170, 5170, 1500, 1900, 2455, 2455, 2000, 750, 200], { size: '265/65R17', loadIndex: 112 }, ['ute.limits.frontAxle', 'ute.limits.rearAxle', 'ute.limits.towBallMax', 'ute.limits.gcm', 'ute.tyre.loadIndex']),
+  hilux('hilux-rogue', 'Rogue 2.8L diesel 4x4', { W: 1885, H: 1848, track: [1530, 1555], fo: 990 }, [3120, 6300, 1500, 1900, 2342, 2283, 3500, 750, 350], { size: '265/60R18', loadIndex: 110 }, ['ute.limits.frontAxle', 'ute.limits.rearAxle', 'ute.limits.towBallMax']),
+  hilux('hilux-rugged-x', 'Rugged X 2.8L diesel 4x4', { W: 1855, H: 1849, track: [1530, 1555], fo: 992 }, [3120, 6300, 1500, 1900, 2327, 2268, 3500, 750, 350], { size: '265/60R18', loadIndex: 110 }, ['ute.limits.frontAxle', 'ute.limits.rearAxle', 'ute.limits.towBallMax']),
+  tundra('tundra-limited', 'Limited'),
+  tundra('tundra-platinum', 'Platinum'),
+  {
+    id: 'hiace-lwb-27p-2009',
+    group: 'Toyota HiAce',
+    name: 'Toyota HiAce LWB van 2.7L petrol',
+    years: '2009',
+    body: HIACE,
+    limits: hiaceLimits(1665, 1620, 4200),
+    tyre: HIACE_TYRE,
+    typical: [...HIACE_TYPICAL, 'ute.limits.gcm', 'ute.limits.unbrakedTow'],
+  },
+  {
+    id: 'hiace-lwb-30d-2009',
+    group: 'Toyota HiAce',
+    name: 'Toyota HiAce LWB van 3.0L diesel',
+    years: '2009',
+    body: HIACE,
+    limits: hiaceLimits(1905, 1855, 3800),
+    tyre: HIACE_TYRE,
+    typical: [...HIACE_TYPICAL, 'ute.limits.kerb', 'ute.limits.tare', 'ute.limits.payload', 'ute.limits.gcm'],
+  },
+];
+
+// Ford utes in Australia: every Ranger dual cab pick-up, and the remanufactured right-hand drive
+// F-150. Figures are CarExpert's specification pages for the current model year (dated 1 September
+// 2026): kerb and tare weight, GVM, GCM, payload, both axle ratings, towing, dimensions, track,
+// front overhang and tyres are as published there. Ford does not publish the tow ball download on
+// those pages, so it is typical, as are the tub and the kerb weight split.
+type Size = { L: number; W: number; H: number; track: [number, number]; fo: number; floor: number };
 const ranger = (id: string, grade: string, z: Size, r: Ratings, tyre: Def['tyre']): Def => ({
   id,
   group: 'Ford Ranger',
@@ -788,7 +841,7 @@ export const VEHICLE_MAKES: { make: VehicleMake; label: string }[] = [
   { make: 'Other', label: 'Other make (generic)' },
 ];
 
-export const VEHICLE_GROUPS: VehicleGroup[] = ['BYD Shark 6', 'BYD SUVs', 'Ford Ranger', 'Ford F-150', 'GWM Cannon Alpha', 'GWM Cannon', 'Earlier GWM models', 'Isuzu D-MAX', 'Isuzu MU-X', 'Toyota HiAce', 'Other makes'];
+export const VEHICLE_GROUPS: VehicleGroup[] = ['BYD Shark 6', 'BYD SUVs', 'Ford Ranger', 'Ford F-150', 'GWM Cannon Alpha', 'GWM Cannon', 'Earlier GWM models', 'Isuzu D-MAX', 'Isuzu MU-X', 'Toyota HiLux', 'Toyota Tundra', 'Toyota HiAce', 'Other makes'];
 
 export function vehicleModel(id: string): VehicleModel {
   return VEHICLES.find((v) => v.id === id) ?? VEHICLES.find((v) => v.id === DEFAULT_VEHICLE)!;
