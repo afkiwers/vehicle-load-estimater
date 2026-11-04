@@ -28,7 +28,7 @@ export function Disclaimer() {
       </div>
       <div className="disclaimer-actions">
         <button className="btn" onClick={() => setHelp(true)}>
-          Assumptions and limitations
+          Show limitations
         </button>
         <button
           className="btn primary"
