@@ -2,6 +2,7 @@ import { useEffect, useState, version as reactVersion } from 'react';
 import { REVISION } from 'three';
 import { APP_URL, BUILD, LATEST_RELEASE_API, REPO_URL, isNewer, versionReport, versionRows } from '../build';
 import { CopyIcon, copy } from './clipboard';
+import { HelpDialog } from './HelpDialog';
 import { Modal } from './Modal';
 import { useStore } from '../state/store';
 import { isRoot } from '../state/versioning';
@@ -86,7 +87,10 @@ function SettingsSection({ onClose }: { onClose: () => void }) {
 
 export function AboutDialog({ onClose }: { onClose: () => void }) {
   const latest = useLatestRelease();
+  const [help, setHelp] = useState(false);
   const rows = versionRows(BUILD, { react: reactVersion, three: REVISION, protocol: location.protocol, host: location.host });
+
+  if (help) return <HelpDialog onClose={() => setHelp(false)} />;
 
   return (
     <Modal
@@ -103,6 +107,16 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
         </>
       }
     >
+      <div className="about-help">
+        <div>
+          <strong>How it works, assumptions and limitations</strong>
+          <p className="about-note">What the numbers rest on, what is assumed and what is left out.</p>
+        </div>
+        <button className="btn btn-outline" onClick={() => setHelp(true)}>
+          Open help
+        </button>
+      </div>
+
       <div className="about-section">
         <h3>Version information</h3>
         <UpdateBadge latest={latest} />
