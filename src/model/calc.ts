@@ -24,7 +24,7 @@ import type {
   Vec3,
 } from './types';
 import { kg, mm, num, pct, signedKg } from './format';
-import { axleCentre, caravanCogHeight, uteCogHeight } from './geometry';
+import { axleCentre, axleShares, caravanCogHeight, loadCentre, uteCogHeight } from './geometry';
 import { trailerName } from './trailers';
 import { hasLoadRating, loadIndexKg, tyreDiameter, tyreLoadKg } from './tyres';
 
@@ -217,7 +217,7 @@ export function uteShare(mass: number, p: Vec3, ute: UteSpec): WheelLoads {
 
 /** Load a point mass puts on the tow ball and on each side of the caravan axle group. */
 export function caravanShare(mass: number, p: Vec3, cv: CaravanSpec): CaravanLoads {
-  const axle = (mass * p.x) / axleCentre(cv);
+  const axle = (mass * p.x) / loadCentre(cv);
   const l = p.y / cv.track;
   return { ball: mass - axle, left: axle * (0.5 - l), right: axle * (0.5 + l) };
 }
@@ -228,8 +228,8 @@ export function caravanShare(mass: number, p: Vec3, cv: CaravanSpec): CaravanLoa
  */
 export function ownWeightAt(weighed: CaravanLoads, cv: CaravanSpec): CaravanLoads {
   const mass = weighed.ball + weighed.left + weighed.right;
-  const from = axleCentre({ ...cv, axles: cv.weighedAxles?.length ? cv.weighedAxles : cv.axles });
-  const to = axleCentre(cv);
+  const from = loadCentre({ ...cv, axles: cv.weighedAxles?.length ? cv.weighedAxles : cv.axles });
+  const to = loadCentre(cv);
   if (!(mass > 0) || !(from > 0) || Math.abs(to - from) < 0.5) return weighed;
   const centre = from * (1 - weighed.ball / mass);
   const ball = mass * (1 - centre / to);
@@ -582,7 +582,10 @@ export function deriveCaravanBaseline(
     if (diffPct > 15) {
       issues.push({
         level: 'warn',
-        message: `The ${T}'s front and rear axle differ by ${pct(diffPct)} (${kg(v.axleFront)} vs ${kg(v.axleRear)}). Tandem axles usually carry similar loads: check the readings, that the ${T} was level, and the suspension.`,
+        message:
+          cv.suspension === 'independent'
+            ? `The ${T}'s front and rear axle differ by ${pct(diffPct)} (${kg(v.axleFront)} vs ${kg(v.axleRear)}). Independent axles don't share load: one carries more when the ${T} isn't level. Check the readings, and that it was level at your tow ball height when weighed.`
+            : `The ${T}'s front and rear axle differ by ${pct(diffPct)} (${kg(v.axleFront)} vs ${kg(v.axleRear)}). Tandem axles usually carry similar loads: check the readings, that the ${T} was level, and the suspension.`,
         fields: ['caravanReadings.axleFront', 'caravanReadings.axleRear'],
       });
     }
@@ -753,7 +756,7 @@ function hitchUp(
   const mass = levelLoads.ball + levelLoads.left + levelLoads.right;
   const L = ute.wheelbase;
   const d = hitch.ballOffset;
-  const a = axleCentre(cv);
+  const a = loadCentre(cv);
   // The trailer's own weight sits at its assumed centre of mass height; items at theirs.
   const moment = heightMoment + (base.loads.ball + base.loads.left + base.loads.right) * (trailerCog - hitch.ballHeight);
   const slopeToAxles = (moment * tan) / a;
@@ -794,6 +797,7 @@ function hitchUp(
   const axleLeft = loads.left + M / a / 2;
   const axleRight = loads.right + M / a / 2;
   const groupChange = axleLeft + axleRight - (base.loads.left + base.loads.right);
+  const shares = axleShares(cv);
   const frontHitched = frontUnhitched + frontDelta - drawbarShift;
   if (hitch.wdh.enabled) {
     issues.push({
@@ -813,10 +817,10 @@ function hitchUp(
       axleLeft,
       axleRight,
       axle: axleLeft + axleRight,
-      axleLoads: base.axles.map((x) => x + groupChange / base.axles.length),
+      axleLoads: base.axles.map((x, i) => x + groupChange * shares[i]),
       ballPct: mass > 0 ? (B / mass) * 100 : 0,
       // `ownWeightAt` returns its input unchanged when the axles haven't moved.
-      axleMove: own === base.loads ? null : { from: axleCentre({ ...cv, axles: cv.weighedAxles }), to: a, ballBefore: base.loads.ball, ballAfter: own.ball },
+      axleMove: own === base.loads ? null : { from: axleCentre({ ...cv, axles: cv.weighedAxles }), to: axleCentre(cv), ballBefore: base.loads.ball, ballAfter: own.ball },
       slopeToAxles,
     },
     result: {

@@ -7,7 +7,7 @@ import {
   deriveUteBaseline,
   uteShare,
 } from './calc';
-import { ITEM_TEMPLATES, applyTrailerKind, itemFromTemplate, newSetup, defaultSettings, emptyCaravanReadings, emptyUteReadings } from './presets';
+import { ITEM_TEMPLATES, applyTrailerKind, itemFromTemplate, resetTrailer, newSetup, defaultSettings, emptyCaravanReadings, emptyUteReadings } from './presets';
 import { TRAILER_KINDS, isTrailerWeight, trailerPreset } from './trailers';
 import type { LoadItem, Setup } from './types';
 import { loadIndexKg, rimDiameter, tyreDiameter } from './tyres';
@@ -502,6 +502,28 @@ describe('trailer types', () => {
     expect(s.items.some((i) => i.templateId === 'driver')).toBe(true);
     expect(s.placeholders).toContain('caravan.limits.atm');
     expect(s.placeholders).not.toContain('caravan.axles.1');
+  });
+
+  it('resets the trailer to its type preset, keeping its name, readings and items', () => {
+    const s = newSetup();
+    s.caravan.name = 'Our van';
+    s.caravan.axles = [4100, 5200];
+    s.caravan.suspension = 'independent';
+    s.caravan.limits.atm = 3500;
+    s.caravanReadings.total = 2600;
+    s.items.push({ ...itemFromTemplate(ITEM_TEMPLATES.find((t) => t.id === 'gas')!, s), host: 'caravan' });
+    s.placeholders = s.placeholders.filter((p) => !p.startsWith('caravan.'));
+    resetTrailer(s);
+    expect(s.caravan).toEqual({ ...trailerPreset('caravan'), name: 'Our van' });
+    expect(s.caravanReadings.total).toBe(2600);
+    expect(s.items.some((i) => i.host === 'caravan')).toBe(true);
+    expect(s.placeholders).toContain('caravan.limits.atm');
+  });
+
+  it('loads older saves without a suspension as leaf springs', () => {
+    const s = newSetup() as unknown as { caravan: Record<string, unknown> };
+    delete s.caravan.suspension;
+    expect(normalizeSetup(JSON.parse(JSON.stringify(s))).caravan.suspension).toBe('leaf');
   });
 
   it('renames a saved boat that still has the old default name, keeping its figures', () => {

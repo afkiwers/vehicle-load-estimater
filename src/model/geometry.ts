@@ -255,6 +255,28 @@ export function axleCentre(cv: Pick<CaravanSpec, 'axles'>): number {
   return cv.axles.reduce((sum, x) => sum + x, 0) / cv.axles.length;
 }
 
+/**
+ * Where the axle group acts for load (mm behind the tow ball): the lever a load on the trailer is shared
+ * over between the ball and the axles.
+ *
+ * Load sharing axles (a single axle, or a tandem on leaf springs with a rocker) carry equal shares, so the
+ * group acts at their centre. Independent tandem axles are each sprung on their own: with the trailer a
+ * rigid frame held at the ball and the same spring rate on both, a load tips the frame about the ball, so
+ * each axle's spring compresses, and pushes back, in proportion to its distance `aᵢ` from the ball.
+ * Balancing moments about the ball, the group then acts at Σaᵢ² / Σaᵢ, a little behind the centre.
+ */
+export function loadCentre(cv: Pick<CaravanSpec, 'axles' | 'suspension'>): number {
+  if (cv.suspension !== 'independent' || cv.axles.length < 2) return axleCentre(cv);
+  return cv.axles.reduce((sum, x) => sum + x * x, 0) / cv.axles.reduce((sum, x) => sum + x, 0);
+}
+
+/** Each axle's share of a change in the axle group's load (see `loadCentre`), front first; they add up to 1. */
+export function axleShares(cv: Pick<CaravanSpec, 'axles' | 'suspension'>): number[] {
+  if (cv.suspension !== 'independent' || cv.axles.length < 2) return cv.axles.map(() => 1 / cv.axles.length);
+  const total = cv.axles.reduce((sum, x) => sum + x, 0);
+  return cv.axles.map((x) => x / total);
+}
+
 export function caravanGeometry(cv: CaravanSpec, hitch: HitchSpec): CaravanGeometry {
   return {
     a: axleCentre(cv),
