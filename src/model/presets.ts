@@ -254,6 +254,16 @@ export function newSetup(name = 'My setup'): Setup {
  * values (as placeholders), clears the trailer readings, removes items that were
  * on the old trailer and, for a boat, puts the boat and its fuel on (its engine is inboard, in the hull's mass).
  */
+/**
+ * Puts the trailer's dimensions, axles, suspension, tyres and plate back to the typical values for its type
+ * (marked as placeholders again). Its name, readings and items are kept.
+ */
+export function resetTrailer(setup: Setup) {
+  const name = setup.caravan.name;
+  setup.caravan = { ...trailerPreset(setup.caravan.kind), name };
+  setup.placeholders = [...setup.placeholders.filter((p) => !p.startsWith('caravan.')), ...trailerPlaceholders(setup.caravan)];
+}
+
 export function applyTrailerKind(setup: Setup, kind: TrailerKind) {
   setup.towing = true;
   setup.caravan = trailerPreset(kind);

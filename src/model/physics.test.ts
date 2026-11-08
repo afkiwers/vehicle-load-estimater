@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { compute, ownWeightAt } from './calc';
-import { axleCentre, caravanCogHeight, uteCogHeight } from './geometry';
+import { axleShares, caravanCogHeight, loadCentre, uteCogHeight } from './geometry';
 import { ITEM_TEMPLATES, applyTrailerKind, applyVehicle, itemFromTemplate, newSetup } from './presets';
 import { TRAILER_KINDS } from './trailers';
 import type { LoadItem, Setup } from './types';
@@ -25,6 +25,7 @@ function setups(count: number): { s: Setup; grade: number }[] {
     applyTrailerKind(s, TRAILER_KINDS[Math.floor(r() * TRAILER_KINDS.length)].kind);
     if (r() < 0.5) s.caravan.axles = [3500 + r() * 1500];
     else s.caravan.axles = [3800 + r() * 800, 4900 + r() * 900];
+    s.caravan.suspension = r() < 0.5 ? 'independent' : 'leaf';
     s.caravan.weighedAxles = r() < 0.3 ? s.caravan.axles.map((x) => x - 200) : [...s.caravan.axles];
     s.hitch.ballOffset = 900 + r() * 700;
     s.hitch.ballHeight = 400 + r() * 200;
@@ -111,7 +112,7 @@ describe('the load model balances', () => {
   it('in moments about the tow ball: own weight, items, slope and WDH couple', () => {
     for (const { s, grade } of cases) {
       const r = compute(s, { grade });
-      const a = axleCentre(s.caravan);
+      const a = loadCentre(s.caravan);
       const tan = grade / 100;
       const own = ownWeightAt(r.caravan!.baseline.loads, s.caravan);
       const ownMass = own.ball + own.left + own.right;
@@ -139,6 +140,43 @@ describe('the load model balances', () => {
       // The static ball weight checked against the tow ball rating is the same with or without it.
       expect(withWdh.hitch!.ball).toBeCloseTo(without.hitch!.ball, 6);
     }
+  });
+
+  it('on independent tandem axles: each takes a change in proportion to its distance from the ball', () => {
+    for (const { s, grade } of cases) {
+      if (s.caravan.axles.length < 2) continue;
+      const r = compute(s, { grade });
+      const base = r.caravan!.baseline.axles;
+      const changes = r.caravan!.axleLoads.map((x, i) => x - base[i]);
+      const total = changes[0] + changes[1];
+      const shares = axleShares(s.caravan);
+      expect(changes[0]).toBeCloseTo(total * shares[0], 6);
+      if (s.caravan.suspension === 'independent') {
+        expect(shares[1] / shares[0]).toBeCloseTo(s.caravan.axles[1] / s.caravan.axles[0], 9);
+        // The springs' moments about the ball add up to the group's change acting at the load centre.
+        const [a1, a2] = s.caravan.axles;
+        expect(changes[0] * a1 + changes[1] * a2).toBeCloseTo(total * loadCentre(s.caravan), 3);
+      }
+    }
+  });
+
+  it('a hand-worked independent suspension example', () => {
+    // Axles 4,000 and 5,000 mm behind the ball: a 100 kg load 3,000 mm behind the ball. Tipping about the
+    // ball compresses the springs by 4:5, so they push back 4k and 5k with 4k·4,000 + 5k·5,000 = 100·3,000:
+    // k = 300,000 / 41,000,000 per mm, 29.27 kg on the front axle, 36.59 kg on the rear and 34.15 kg on the ball.
+    const s = newSetup('independent');
+    s.items = [];
+    s.caravan.axles = [4000, 5000];
+    s.caravan.weighedAxles = [4000, 5000];
+    const leaf = compute(s);
+    s.caravan.suspension = 'independent';
+    const before = compute(s);
+    s.items.push({ ...itemFromTemplate(ITEM_TEMPLATES[0], s), host: 'caravan', mass: 100, pos: { x: 3000, y: 0, z: 800 }, measured: null, enabled: true });
+    const after = compute(s);
+    expect(before.caravan!.axleLoads).toEqual(leaf.caravan!.axleLoads);
+    expect(after.caravan!.axleLoads[0] - before.caravan!.axleLoads[0]).toBeCloseTo((4 * 300000) / 41000, 6);
+    expect(after.caravan!.axleLoads[1] - before.caravan!.axleLoads[1]).toBeCloseTo((5 * 300000) / 41000, 6);
+    expect(after.caravan!.loads.ball - before.caravan!.loads.ball).toBeCloseTo(100 - (9 * 300000) / 41000, 6);
   });
 
   it('a hand-worked WDH example', () => {

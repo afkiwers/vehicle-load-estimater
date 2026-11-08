@@ -228,13 +228,30 @@ const HELP: Group[] = [
       },
       {
         id: 'tandem',
-        title: 'Tandem axles',
+        title: 'Tandem axles and suspension',
         body: (
-          <p>
-            Tandem trailer axles are taken to share any change in load equally, from their weighbridge readings (or half the group each if not
-            weighed separately), and each is checked against half the TGALR. That holds for load-sharing suspension (rocker roller, airbag) but
-            not always for independent axles, which can carry unequal shares, especially when the trailer is not level.
-          </p>
+          <>
+            <p>
+              Each axle starts from its weighbridge reading, or half the group if they weren't weighed separately, and is checked against half the
+              TGALR. How a change in load (items, the WDH, a slope) is shared depends on the suspension you pick under <em>Axles</em>:
+            </p>
+            <ul>
+              <li>
+                <strong>Leaf springs</strong> on a tandem are joined by a rocker that shares the load, so both axles take the same share and act as
+                one axle at their centre.
+              </li>
+              <li>
+                <strong>Independent</strong> suspension (trailing arms with coil springs, airbags or torsion) has no rocker. The trailer is taken as
+                a rigid frame held at the ball with the same spring rate on both axles, so a load tips it about the ball and each axle takes a share
+                in proportion to its distance from the ball: the rear axle more. Together they act a little behind their centre, which also puts a
+                little more on the ball.
+              </li>
+            </ul>
+            <p>
+              Real independent axles also depend on the hitch height: a trailer towed nose up puts more on its rear axle, nose down on its front.
+              The model assumes it sits level at your ball height, so weigh each axle where you can.
+            </p>
+          </>
         ),
       },
     ],

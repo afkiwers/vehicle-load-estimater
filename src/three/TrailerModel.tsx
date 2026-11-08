@@ -1,4 +1,5 @@
-// The towed trailer in 3D: a shared chassis (drawbar or tongue, rails, leaf-sprung axles, wheels,
+// The towed trailer in 3D: a shared chassis (drawbar or tongue, rails, leaf-sprung axles or independent
+// trailing arms with coil springs, wheels,
 // mudguards) and a body per type: caravan, enclosed, open (box) trailer, or boat trailer bunks. All of
 // it is drawn in the trailer's host frame (x behind the tow ball) and placed `offset` behind the
 // vehicle's front axle. In x-ray mode closed bodies turn into faint ghosts so items inside can be placed.
@@ -74,6 +75,58 @@ function DrawbarPlate({ c, m, offset, railY }: { c: CaravanGeometry; m: Material
   );
 }
 
+const coilMat = new THREE.MeshStandardMaterial({ color: '#f2b705', metalness: 0.3, roughness: 0.45 });
+
+/** A coil spring standing on `base` (host frame, mm), `height` tall. */
+function Coil({ base, height, offset, radius = 55, wire = 11, turns = 6 }: { base: { x: number; y: number; z: number }; height: number; offset: number; radius?: number; wire?: number; turns?: number }) {
+  const geo = useMemo(() => {
+    const h = height / 1000;
+    const r = radius / 1000;
+    const steps = turns * 24;
+    const points = Array.from({ length: steps + 1 }, (_, i) => {
+      const t = i / steps;
+      const angle = t * turns * Math.PI * 2;
+      return new THREE.Vector3(Math.cos(angle) * r, t * h, Math.sin(angle) * r);
+    });
+    return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), steps, wire / 1000, 8, false);
+  }, [height, radius, wire, turns]);
+  useEffect(() => () => geo.dispose(), [geo]);
+  return <mesh geometry={geo} position={toWorld('caravan', base, offset)} material={coilMat} castShadow />;
+}
+
+/**
+ * Independent suspension for one wheel: a trailing arm pivoting on a bracket ahead of the wheel, a coil
+ * spring between the arm and the chassis, and a shock absorber behind it.
+ */
+function TrailingArm({ x, side, cv, c, m, offset, railY, railZ }: { x: number; side: number; cv: CaravanSpec; c: CaravanGeometry; m: Materials; offset: number; railY: number; railZ: number }) {
+  const v = { host: 'caravan' as const, offset };
+  const armY = side * Math.max(cv.track / 2 - c.tyreW / 2 - 80, railY + 40);
+  const pivot = { x: x - 560, y: armY, z: c.wheelR + 70 };
+  const hub = { x, y: armY, z: c.wheelR };
+  const along = (t: number) => ({ x: pivot.x + (hub.x - pivot.x) * t, y: armY, z: pivot.z + (hub.z - pivot.z) * t });
+  const seat = along(0.62);
+  // Where the spring and shock bear: the chassis rail, or a bracket up under the floor when the rail sits too low.
+  const frameZ = Math.max(railZ - 50, Math.min(c.floorZ - 50, seat.z + 300));
+  const crossY = yy(side, railY - 25, Math.abs(armY) + 50);
+  const riserY = side * railY;
+  return (
+    <group>
+      {/* Cross-member out from the rail to the pivot bracket, and a spring and shock bracket above the arm. */}
+      <RBox {...v} b={{ x0: pivot.x - 40, x1: pivot.x + 40, ...crossY, z0: railZ - 60, z1: railZ + 40 }} r={6} material={m.chassis} />
+      <RBox {...v} b={{ x0: seat.x - 70, x1: x + 380, ...crossY, z0: frameZ - 10, z1: frameZ + 40 }} r={6} material={m.chassis} />
+      {frameZ > railZ && [seat.x - 40, x + 350].map((rx) => (
+        <Strut key={rx} host="caravan" offset={offset} a={{ x: rx, y: riserY, z: railZ }} b={{ x: rx, y: riserY, z: frameZ + 20 }} w={50} d={50} material={m.chassis} />
+      ))}
+      <Strut host="caravan" offset={offset} a={{ ...pivot, z: railZ - 40 }} b={pivot} w={70} d={60} material={m.chassis} />
+      <Strut host="caravan" offset={offset} a={pivot} b={hub} w={80} d={70} material={m.chassis} />
+      <Strut host="caravan" offset={offset} a={hub} b={{ x, y: (side * cv.track) / 2, z: c.wheelR }} w={50} d={50} material={m.chassis} />
+      <Coil base={{ ...seat, z: seat.z + 30 }} height={Math.max(frameZ - seat.z - 40, 60)} offset={offset} />
+      <Strut host="caravan" offset={offset} a={{ x: x + 60, y: armY, z: c.wheelR + 10 }} b={{ x: x + 170, y: armY, z: (c.wheelR + frameZ) / 2 }} w={22} d={22} material={m.brushed} />
+      <Strut host="caravan" offset={offset} a={{ x: x + 160, y: armY, z: (c.wheelR + frameZ) / 2 - 30 }} b={{ x: x + 330, y: armY, z: frameZ }} w={50} d={50} material={m.chassis} />
+    </group>
+  );
+}
+
 /**
  * Drawbar, running gear and (for small trailers) mudguards, shared by every trailer type. No jockey wheel: hitched, it is wound up
  * and carries nothing, and drawn on the ground it looked as if it took some of the ball weight.
@@ -88,6 +141,7 @@ function Chassis({ cv, c, m, offset, accent, hitch }: BodyProps & { hitch: Hitch
   const rimR = ((rimDiameter(cv.tyre.size) ?? 15) * 25.4) / 2;
   // Wheels outside the body need guards; a caravan's sit under its floor.
   const guards = cv.track / 2 + c.tyreW / 2 > half - 40;
+  const independent = cv.suspension === 'independent';
 
   // A-frame rails run from the coupling out to the chassis rails at the body front. A boat trailer has a single tongue.
   const aFrame = (central ? [] : [-1, 1]).map((side) => {
@@ -135,11 +189,12 @@ function Chassis({ cv, c, m, offset, accent, hitch }: BodyProps & { hitch: Hitch
           material={m.chassis}
         />
       ))}
-      {c.axles.map((x) => (
+      {!independent && c.axles.map((x) => (
         <Strut key={x} host="caravan" offset={offset} a={{ x, y: -cv.track / 2 + 60, z: c.wheelR }} b={{ x, y: cv.track / 2 - 60, z: c.wheelR }} w={60} d={60} material={m.chassis} />
       ))}
+      {independent && c.axles.map((x) => [-1, 1].map((side) => <TrailingArm key={`arm${x}${side}`} x={x} side={side} cv={cv} c={c} m={m} offset={offset} railY={railY} railZ={railZ} />))}
       {/* Leaf springs on the axle, hung from the rails front and back. */}
-      {c.axles.map((x) =>
+      {!independent && c.axles.map((x) =>
         [-1, 1].map((side) => {
           const y = side * railY;
           const top = c.wheelR + 80;
@@ -157,7 +212,7 @@ function Chassis({ cv, c, m, offset, accent, hitch }: BodyProps & { hitch: Hitch
       {c.axles.map((x) =>
         [-1, 1].map((side) => (
           <group key={`${x}${side}`}>
-            <Wheel host="caravan" offset={offset} x={x} y={(side * cv.track) / 2} r={c.wheelR} rimR={rimR} width={c.tyreW} style="highway" />
+            <Wheel host="caravan" offset={offset} x={x} y={(side * cv.track) / 2} r={c.wheelR} rimR={rimR} width={c.tyreW} style={independent ? 'at' : 'highway'} />
             {guards && (
               <mesh position={toWorld('caravan', { x, y: (side * cv.track) / 2, z: c.wheelR }, offset)} rotation={[Math.PI / 2, 0, 0]} material={m.brushed} castShadow>
                 <cylinderGeometry args={[(c.wheelR + 70) / 1000, (c.wheelR + 70) / 1000, (c.tyreW + 90) / 1000, 32, 1, true, Math.PI / 2, Math.PI]} />

@@ -67,6 +67,7 @@ export function normalizeSetup(input: Partial<Setup>): Setup {
   const axlesOk = (xs: unknown) => Array.isArray(xs) && xs.length >= 1 && xs.length <= 2 && xs.every((x) => Number(x) > 0);
   if (!axlesOk(merged.caravan.axles)) merged.caravan.axles = [...defaults.caravan.axles];
   if (!axlesOk(merged.caravan.weighedAxles)) merged.caravan.weighedAxles = [...merged.caravan.axles];
+  if (merged.caravan.suspension !== 'leaf' && merged.caravan.suspension !== 'independent') merged.caravan.suspension = 'leaf';
   return merged;
 }
 

@@ -124,6 +124,9 @@ export type TrailerKind = 'caravan' | 'boat' | 'enclosed' | 'open';
  * setups for compatibility; `kind` says whether it is a caravan, a boat on its
  * trailer, an enclosed or an open trailer.
  */
+/** Trailer suspension: `leaf` springs (load sharing on a tandem) or `independent` trailing arms. */
+export type Suspension = 'leaf' | 'independent';
+
 export interface CaravanSpec {
   kind: TrailerKind;
   name: string;
@@ -135,6 +138,12 @@ export interface CaravanSpec {
    * from here shifts the trailer's own weight between the ball and the axles.
    */
   weighedAxles: number[];
+  /**
+   * How the axles are sprung. Leaf springs on a tandem are joined by a rocker (load sharing), so both axles
+   * carry the same share of any change. Independent suspension (trailing arms with coil springs or
+   * torsion) is not: each axle takes a change in proportion to its distance from the tow ball.
+   */
+  suspension: Suspension;
   track: number;
   /** Coupling centre to the front wall of the body (A-frame length). */
   bodyStart: number;

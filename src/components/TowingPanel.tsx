@@ -1,9 +1,9 @@
-import type { CaravanReadings, TrailerKind } from '../model/types';
+import type { CaravanReadings, Suspension, TrailerKind } from '../model/types';
 import type { CaravanBaselineSource } from '../model/calc';
 import { kg, mm, pct } from '../model/format';
-import { axleCentre } from '../model/geometry';
+import { axleCentre, axleShares, loadCentre } from '../model/geometry';
 import { hasLoadRating, loadIndexKg, tyreDiameter } from '../model/tyres';
-import { applyTrailerKind } from '../model/presets';
+import { applyTrailerKind, resetTrailer } from '../model/presets';
 import { TRAILER_KINDS, trailerInfo, trailerName } from '../model/trailers';
 import { useUi } from '../state/ui';
 import { useStore } from '../state/store';
@@ -234,7 +234,22 @@ export function TowingPanel() {
                   </select>
                 </span>
               </label>
-              <div />
+              <label className="field">
+                <span className="field-label">Suspension</span>
+                <span className="field-input">
+                  <select
+                    value={cv.suspension}
+                    aria-label="Suspension"
+                    onChange={(e) => {
+                      const suspension = e.target.value as Suspension;
+                      update((s) => void (s.caravan.suspension = suspension));
+                    }}
+                  >
+                    <option value="leaf">Leaf springs</option>
+                    <option value="independent">Independent</option>
+                  </select>
+                </span>
+              </label>
               <NumField
                 path="caravan.axles.0"
                 label={tandem ? 'Tow ball → axle 1 (front)' : 'Tow ball → axle'}
@@ -247,10 +262,22 @@ export function TowingPanel() {
                 <NumField path="caravan.axles.1" label="Tow ball → axle 2 (rear)" unit="mm" nullable={false} min={300} flag={flagFor(result.issues, 'caravan.axles.1')} />
               )}
             </div>
-            {tandem && (
+            {tandem && cv.suspension !== 'independent' && (
               <p className="section-note" style={{ marginTop: 8, marginBottom: 0 }}>
-                Axle spacing {mm(Math.abs(cv.axles[1] - cv.axles[0]))}. The axles share the load equally, so they act as one axle{' '}
+                Axle spacing {mm(Math.abs(cv.axles[1] - cv.axles[0]))}. Leaf springs on a rocker share the load equally, so the axles act as one axle{' '}
                 {mm(axleCentre(cv))} behind the tow ball.
+              </p>
+            )}
+            {tandem && cv.suspension === 'independent' && (
+              <p className="section-note" style={{ marginTop: 8, marginBottom: 0 }}>
+                Axle spacing {mm(Math.abs(cv.axles[1] - cv.axles[0]))}. Independent axles don't share load: each takes a change in proportion to its
+                distance from the tow ball ({pct(axleShares(cv)[0] * 100)} front, {pct(axleShares(cv)[1] * 100)} rear), so together they act{' '}
+                {mm(loadCentre(cv))} behind the tow ball. They are sensitive to the hitch height: set it so the {T} sits level.
+              </p>
+            )}
+            {!tandem && cv.suspension === 'independent' && (
+              <p className="section-note" style={{ marginTop: 8, marginBottom: 0 }}>
+                On a single axle the suspension type doesn't change the loads; it is drawn in the 3D view.
               </p>
             )}
             {move && (
@@ -298,6 +325,18 @@ export function TowingPanel() {
               <NumField path="caravan.floorHeight" label={labels.floor} unit="mm" nullable={false} min={200} />
             </div>
           </Section>
+
+          <div className="btn-row">
+            <button
+              className="btn"
+              onClick={() => {
+                if (!confirm(`Reset the ${T}'s dimensions, axles, suspension, tyres and plate to typical ${trailerInfo(cv.kind).label.toLowerCase()} values? Its readings and items are kept. You can undo it.`)) return;
+                update((s) => resetTrailer(s));
+              }}
+            >
+              Reset {T} settings
+            </button>
+          </div>
         </>
       )}
     </div>

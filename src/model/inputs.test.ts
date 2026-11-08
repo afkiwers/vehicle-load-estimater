@@ -51,6 +51,7 @@ function another(v: unknown, path: string): unknown {
   if (typeof v === 'boolean') return !v;
   if (typeof v === 'number') return Math.round(v * 1.13 + 37);
   if (path === 'caravan.kind') return v === 'boat' ? 'caravan' : 'boat';
+  if (path === 'caravan.suspension') return v === 'leaf' ? 'independent' : 'leaf';
   if (path.endsWith('tyre.size')) return '285/75R16';
   if (typeof v === 'string') return `${v}x`;
   return 150; // not entered yet
