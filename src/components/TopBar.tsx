@@ -69,10 +69,10 @@ export function TopBar() {
           <path d="M9 4v16" />
         </svg>
       </button>
-      <div className="brand">
-        <span className="brand-mark">V</span>
+      <h1 className="brand">
+        <span className="brand-mark" aria-hidden="true">V</span>
         <span className="brand-text">Vehicle Load Estimator</span>
-      </div>
+      </h1>
       <select value={activeId} onChange={(e) => selectSetup(e.target.value)} aria-label="Setup">
         {order.map((id) => (
           <option key={id} value={id}>

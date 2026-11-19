@@ -160,6 +160,11 @@ one tilted group (`SlopeTilt`), and picking undoes the tilt.
 - `npm test` (vitest): the load model, every vehicle model, every input field, versions and upgrades,
   share links. `npm run build` type-checks (`tsc`, TypeScript 7) and builds the single file, copying it
   to `vehicle-load-estimator.html` in the repo root; CI checks the committed copy matches the source.
+- Security policy: GitHub Pages can't send response headers, so `vite.config.ts` writes a
+  Content-Security-Policy `<meta>` into the built page, allowing each inline script by its hash. A new
+  outside host (a script, an API the app calls, an image) must be added there, or the browser blocks it.
+- `pages/` holds files published next to the root page by the release workflow: the link preview image
+  (`og-image.png`, referenced from `index.html`), the home screen icon, `llms.txt` and `sitemap.xml`.
 - Releasing: bump `package.json`'s version, then publish a GitHub release with the same tag. The
   Release workflow refuses a tag that doesn't match, runs the tests, attaches the file to the release
   and adds the build to the `gh-pages` branch under `v/<version>/` (the newest also at the root) with

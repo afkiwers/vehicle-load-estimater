@@ -109,7 +109,7 @@ button {
   gap: 8px;
   font-weight: 650;
   font-size: 14px;
-  margin-right: 10px;
+  margin: 0 10px 0 0;
   white-space: nowrap;
 }
 
