@@ -5,6 +5,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Vehicle and caravan load estimator: weighbridge readings, axle and wheel loads, towing limits." />
     <title>Vehicle Load Estimator</title>
+    <link rel="canonical" href="https://afkiwers.github.io/vehicle-load-estimater/" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta name="theme-color" content="#1d2228" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Vehicle Load Estimator" />
+    <meta property="og:title" content="Vehicle Load Estimator" />
+    <meta property="og:description" content="Plan how your vehicle, its load and a caravan or trailer share the weight between the axles, and check every figure against the manufacturer's ratings. Free, in your browser." />
+    <meta property="og:url" content="https://afkiwers.github.io/vehicle-load-estimater/" />
+    <meta property="og:image" content="https://afkiwers.github.io/vehicle-load-estimater/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="A dual cab ute towing a caravan in 3D, with the load on each wheel and axle." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="apple-touch-icon" href="https://afkiwers.github.io/vehicle-load-estimater/apple-touch-icon.png" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Vehicle Load Estimator",
+        "url": "https://afkiwers.github.io/vehicle-load-estimater/",
+        "description": "Works out how a vehicle, its load and a towed caravan or trailer share their weight between the axles and wheels, and checks each figure against the manufacturer's ratings.",
+        "applicationCategory": "UtilitiesApplication",
+        "operatingSystem": "Any (runs in a web browser)",
+        "isAccessibleForFree": true,
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "AUD" },
+        "license": "https://www.gnu.org/licenses/gpl-3.0.html",
+        "codeRepository": "https://github.com/afkiwers/vehicle-load-estimater"
+      }
+    </script>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23d9590f'/%3E%3Ctext x='16' y='22' font-family='Arial' font-weight='700' font-size='17' text-anchor='middle' fill='white'%3EV%3C/text%3E%3C/svg%3E" />
     <!-- Privacy-friendly analytics by Plausible -->
     <script async src="https://plausible.iwers.synology.me/js/pa-uOBWhVcqcHsJ1GOPvWFQq.js"></script>
@@ -22,6 +51,14 @@
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      <h1>Vehicle Load Estimator</h1>
+      <p>
+        Plan how your vehicle, its load and a caravan, boat or trailer share their weight between the axles and wheels. Enter your weighbridge
+        readings, place your gear in 3D, and check every figure against your vehicle's GVM, GCM, axle, tyre and towing ratings. It runs entirely in
+        your browser and needs JavaScript: please turn it on to use the app.
+      </p>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

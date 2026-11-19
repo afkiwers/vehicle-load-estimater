@@ -1,0 +1,12 @@
+# Vehicle Load Estimator
+
+> A free, open-source web app (GPL-3.0) that works out how a vehicle, its load and a towed caravan, boat or trailer share their weight between the axles and wheels, and checks each figure against the manufacturer's ratings (GVM, GCM, axle loads, tyres, towing capacity, tow ball download, ATM, GTM, TGALR). It runs entirely in the browser; setups stay on the user's device.
+
+It is a static estimate to plan with, not a weighbridge or a compliance certificate. Vehicle data covers utes, SUVs and vans sold in Australia; values that are not published are marked as placeholders in the app.
+
+## Links
+
+- [The app](https://afkiwers.github.io/vehicle-load-estimater/)
+- [Source code and documentation](https://github.com/afkiwers/vehicle-load-estimater)
+- [How the numbers are worked out](https://github.com/afkiwers/vehicle-load-estimater#how-the-numbers-are-worked-out)
+- [Releases](https://github.com/afkiwers/vehicle-load-estimater/releases)
